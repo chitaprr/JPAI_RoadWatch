@@ -1,0 +1,81 @@
+@startuml baza
+
+entity Users {
+    * id : INT <<PK>>
+    --
+    * email : VARCHAR
+    * name : VARCHAR
+    * password : VARCHAR
+    * is_superadmin : BOOL
+    * gmina_id : INT <<FK>>
+    * created_at : TIMESTAMP
+}
+
+entity Gminy {
+    * id : INT <<PK>>
+    --
+    * name : VARCHAR
+}
+
+entity Zgloszenia {
+    * id : INT <<PK>>
+    --
+    * user_id : INT <<FK>>
+    * urzednik_id : INT <<FK>>
+    * contractor_id : INT <<FK>>
+    * title : VARCHAR
+    * description : TEXT
+    * lat : DECIMAL
+    * lng : DECIMAL
+    * priority : SMALLINT
+    * status : VARCHAR
+    * created_at : TIMESTAMP
+    * deadline : DATE
+    * updated_at : TIMESTAMP
+}
+
+entity Zdjecia {
+    * id : INT <<PK>>
+    --
+    * zgloszenie_id : INT <<FK>>
+    * file_path : VARCHAR
+    * uploaded_at : TIMESTAMP
+}
+
+entity Naprawy {
+    * id : INT <<PK>>
+    --
+    * zadanie_id : INT <<FK>>
+    * contractor_id : INT <<FK>>
+    * description : TEXT
+    * completed_at : TIMESTAMP
+}
+
+entity NaprawyZdjecia {
+    * id : INT <<PK>>
+    --
+    * naprawa_id : INT <<FK>>
+    * file_path : VARCHAR
+}
+
+entity Wykonawcy {
+    * id : INT <<PK>>
+    --
+    * name : VARCHAR
+    * gmina_id : INT <<FK>>
+    * nip : VARCHAR
+}
+
+Gminy ||--o{ Users : "urzednicy"
+Gminy ||--o{ Users : "admini"
+Gminy ||--o{ Zgloszenia : "manages"
+Users ||--o{ Zgloszenia : "reports"
+Users ||--o{ Zgloszenia : "assigned (urzednik)"
+Wykonawcy ||--o{ Zgloszenia : "executes"
+Zgloszenia ||--o{ Zdjecia : "has"
+Zgloszenia ||--o{ Naprawy : "documented by"
+Wykonawcy ||--o{ Naprawy : "performed by"
+Naprawy ||--o{ NaprawyZdjecia : "has"
+Gminy ||--o{ Wykonawcy : "employs"
+
+@enduml
