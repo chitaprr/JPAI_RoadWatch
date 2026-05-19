@@ -9,6 +9,7 @@ entity Users {
     * is_superadmin : BOOL
     * gmina_id : INT <<FK>>
     * created_at : TIMESTAMP
+    * updated_at : TIMESTAMP
 }
 
 entity Gminy {

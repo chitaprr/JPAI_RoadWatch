@@ -21,6 +21,6 @@ app.use(requestLogger);
 
 app.use('/', router);
 
-app.use('*', (req, res) => NOT_FOUND(res));
+app.use((_req, res) => NOT_FOUND(res));
 
 export default httpServer;
