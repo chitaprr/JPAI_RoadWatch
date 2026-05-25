@@ -1,4 +1,4 @@
-FROM node:24-alpine
+FROM node:24-alpine AS build
 
 WORKDIR /app
 
@@ -7,9 +7,18 @@ RUN npm ci
 
 COPY . .
 
-EXPOSE 8000
-
 RUN npm run build
 
-CMD ["npm", "start"]
+FROM node:24-alpine
 
+WORKDIR /app
+
+COPY --from=build /app/dist /app/dist
+COPY package*.json ./
+
+ENV NODE_ENV=production
+RUN npm ci
+
+EXPOSE 8000
+
+CMD ["npm", "start"]
