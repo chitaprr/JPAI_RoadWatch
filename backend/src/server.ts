@@ -6,7 +6,6 @@ import router from './routes/main.router';
 import requestLogger from './middlewares/requestLogger';
 import {NOT_FOUND} from './utils/httpCodeResponses/messages';
 import config from '../config';
-import authRoutes from './routes/authRoutes';
 
 const app = express();
 const httpServer = http.createServer(app);
@@ -23,9 +22,5 @@ app.use(requestLogger);
 app.use('/', router);
 
 app.use((_req, res) => NOT_FOUND(res));
-
-app.use(express.json());
-
-app.use('/api/auth', authRoutes);
 
 export default httpServer;

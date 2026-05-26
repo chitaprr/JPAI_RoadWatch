@@ -1,36 +1,35 @@
-import { Request, Response, NextFunction } from 'express';
+import {Request, Response, NextFunction} from 'express';
 import jwt from 'jsonwebtoken';
+import config from '../../config';
+import {UNAUTHORIZED, FORBIDDEN} from '../utils/httpCodeResponses/messages';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'super_secret_key_change_me_in_production';
+const JWT_SECRET = config.JWT_SECRET!;
 
-// Rozszerzamy interfejs Request z Expressa, aby przechowywał dane zalogowanego użytkownika
 export interface AuthenticatedRequest extends Request {
-  user?: {
-    userId: number;
-    email: string;
-    isSuperadmin: boolean;
-  };
+	user?: {
+		userId: number;
+		email: string;
+		isSuperadmin: boolean;
+	};
 }
 
 export const authenticateJWT = (req: AuthenticatedRequest, res: Response, next: NextFunction): void => {
-  const authHeader = req.headers.authorization;
+	const authHeader = req.headers.authorization;
 
-  if (authHeader) {
-    // Format nagłówka: "Bearer <TOKEN>"
-    const token = authHeader.split(' ')[1];
+	if (!authHeader) {
+		UNAUTHORIZED(res, 'Brak autoryzacji. Wymagany token JWT.');
+		return;
+	}
 
-    jwt.verify(token, JWT_SECRET, (err, decoded) => {
-      if (err) {
-        res.status(403).json({ message: 'Token jest niepoprawny lub wygasł.' });
-        return;
-      }
+	const token = authHeader.split(' ')[1];
 
-      // Przypisujemy zdekodowane dane użytkownika do obiektu żądania (req)
-      req.user = decoded as AuthenticatedRequest['user'];
-      next(); // Przechodzimy do właściwego kontrolera
-    });
-  } else {
-    // HTTP 401 Unauthorized w przypadku braku tokenu
-    res.status(401).json({ message: 'Brak autoryzacji. Wymagany token JWT.' });
-  }
+	jwt.verify(token, JWT_SECRET, (err, decoded) => {
+		if (err) {
+			FORBIDDEN(res, 'Token jest niepoprawny lub wygasł.');
+			return;
+		}
+
+		req.user = decoded as AuthenticatedRequest['user'];
+		next();
+	});
 };
