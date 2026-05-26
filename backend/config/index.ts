@@ -11,6 +11,7 @@ const config = {
 		FILE: 'app.log'
 	},
 	DATABASE_URL: process.env.DATABASE_URL,
+	JWT_SECRET: process.env.JWT_SECRET,
 } as const;
 
 const checkConfigFields = (): Promise<string> => {
