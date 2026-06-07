@@ -16,7 +16,7 @@ function Login() {
 
     try {
       // Dajemy kelnerowi dane i każemy mu iść do kuchni (backendu)
-      const response = await api.post("/login", {
+      const response = await api.post("/auth/login", {
         email: email,
         password: password,
       });
