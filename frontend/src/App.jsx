@@ -1,6 +1,6 @@
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
-import Map from './Map';
-import Login from './Login';
+import { BrowserRouter, Routes, Route } from "react-router-dom";
+import Map from "./Map";
+import Login from "./Login";
 
 function App() {
   return (
@@ -8,7 +8,7 @@ function App() {
       <Routes>
         {/* Teraz czysty adres to Logowanie */}
         <Route path="/" element={<Login />} />
-        
+
         {/* A adres z dopiskiem /mapa prowadzi do Mapy */}
         <Route path="/mapa" element={<Map />} />
       </Routes>
