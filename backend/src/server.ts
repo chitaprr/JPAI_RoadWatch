@@ -4,6 +4,7 @@ import cors from "cors";
 import http from "http";
 import router from "./routes/main.router";
 import requestLogger from "./middlewares/requestLogger";
+import { UPLOAD_DIR, UPLOAD_ROUTE_PREFIX } from "./middlewares/upload";
 import { NOT_FOUND } from "./utils/httpCodeResponses/messages";
 import config from "../config";
 
@@ -20,6 +21,8 @@ app.use(express.json());
 app.use(cookieParser());
 
 app.use(requestLogger);
+
+app.use(UPLOAD_ROUTE_PREFIX, express.static(UPLOAD_DIR));
 
 app.use("/", router);
 

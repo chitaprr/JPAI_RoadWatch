@@ -23,8 +23,12 @@ services:
     restart: unless-stopped
     env_file:
       - ./backend/.env
+    environment:
+      UPLOAD_DIR: /app/upload
     ports:
       - "8000:8000"
+    volumes:
+      - ./uploaded_files:/app/upload
     depends_on:
       postgres:
         condition: service_healthy
