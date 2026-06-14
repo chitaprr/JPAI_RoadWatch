@@ -17,7 +17,7 @@
     "prisma:validate": "prisma validate",
     "prisma:format": "prisma format",
     "docs:generate": "ts-node src/docs/generate.ts",
-    "lint": "eslint .",
+    "lint": "eslint . --max-warnings 0",
     "lint:fix": "eslint . --fix",
     "format": "prettier --write \"src/**/*.ts\" \"config/**/*.ts\"",
     "format:check": "prettier --check \"src/**/*.ts\" \"config/**/*.ts\"",
