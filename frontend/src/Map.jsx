@@ -1,31 +1,29 @@
-import React from 'react';
-import { useNavigate } from 'react-router-dom';
-import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
-import 'leaflet/dist/leaflet.css';
+import { useNavigate } from "react-router-dom";
+import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
+import "leaflet/dist/leaflet.css";
 
 function Map() {
   const navigate = useNavigate();
-  
+
   return (
     // Dodałem position: "relative", żeby przycisk nie "uciekł" poza ekran
     <div style={{ height: "100vh", width: "100vw", position: "relative" }}>
-      
       {/* NASZ NOWY PRZYCISK */}
-      <button 
-        onClick={() => navigate('/zgloszenie')} 
-        style={{ 
-          position: 'absolute', 
-          top: '20px', 
-          right: '20px', 
+      <button
+        onClick={() => navigate("/zgloszenie")}
+        style={{
+          position: "absolute",
+          top: "20px",
+          right: "20px",
           zIndex: 1000, // To sprawia, że przycisk zawsze wyświetla się NAD mapą
-          padding: '12px 20px', 
-          cursor: 'pointer', 
-          backgroundColor: '#dc3545', 
-          color: 'white', 
-          border: 'none', 
-          borderRadius: '5px',
-          fontWeight: 'bold',
-          boxShadow: '0 4px 6px rgba(0,0,0,0.3)' // Mały cień dla lepszego wyglądu
+          padding: "12px 20px",
+          cursor: "pointer",
+          backgroundColor: "#dc3545",
+          color: "white",
+          border: "none",
+          borderRadius: "5px",
+          fontWeight: "bold",
+          boxShadow: "0 4px 6px rgba(0,0,0,0.3)", // Mały cień dla lepszego wyglądu
         }}
       >
         + Nowe Zgłoszenie
@@ -45,7 +43,6 @@ function Map() {
           <Popup>JPAI RoadWatch - Nasza pierwsza pinezka!</Popup>
         </Marker>
       </MapContainer>
-      
     </div>
   );
 }
