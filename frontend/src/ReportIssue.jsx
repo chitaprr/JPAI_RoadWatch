@@ -50,6 +50,11 @@ function ReportIssue() {
   const [description, setDescription] = useState("");
   const [photos, setPhotos] = useState([]); // od 1 do 5 plików
   const [position, setPosition] = useState(null); // [lat, lng]
+  // Zalogowany = jest token. Wtedy zgłoszenie idzie z tokenem (przypięte do
+  // konta), a pole email jest ukryte (backend bierze email z konta).
+  const [isLoggedIn, setIsLoggedIn] = useState(
+    () => !!localStorage.getItem("token"),
+  );
 
   const MAX_PHOTOS = 5;
 
@@ -86,18 +91,32 @@ function ReportIssue() {
     const formData = new FormData();
     formData.append("title", title);
     formData.append("description", description);
-    formData.append("email", email);
+    // Email tylko dla gościa; zalogowany ma go brany z konta po stronie backendu.
+    if (!isLoggedIn) formData.append("email", email);
     formData.append("lat", position[0]);
     formData.append("lng", position[1]);
     photos.forEach((photo) => formData.append("zdjecia", photo));
 
     try {
+      // Zalogowany -> wysyłamy z tokenem (zgłoszenie przypięte do konta).
+      // Gość -> skipAuth, żeby ewentualny resztkowy token nie został odrzucony.
       await api.post("/zgloszenia", formData, {
         headers: { "Content-Type": "multipart/form-data" },
+        skipAuth: !isLoggedIn,
       });
       alert("Zgłoszenie zostało pomyślnie wysłane!");
       navigate("/");
     } catch (error) {
+      // Token wygasł/niepoprawny: czyścimy go i odsłaniamy pole email,
+      // by można było wysłać ponownie jako gość.
+      if (error.response?.status === 403 && isLoggedIn) {
+        localStorage.removeItem("token");
+        setIsLoggedIn(false);
+        alert(
+          "Twoja sesja wygasła. Uzupełnij adres e-mail i wyślij zgłoszenie ponownie.",
+        );
+        return;
+      }
       // 409 = istnieją zgłoszenia w pobliżu (możliwy duplikat).
       if (error.response?.status === 409) {
         alert("W pobliżu istnieje już podobne zgłoszenie.");
@@ -128,13 +147,15 @@ function ReportIssue() {
           width: "350px",
         }}
       >
-        <input
-          type="email"
-          placeholder="Twój adres e-mail (do kontaktu)"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          required
-        />
+        {!isLoggedIn && (
+          <input
+            type="email"
+            placeholder="Twój adres e-mail (do kontaktu)"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            required
+          />
+        )}
 
         <input
           type="text"

@@ -35,7 +35,11 @@ services:
         condition: service_healthy
 
   frontend:
-    build: ./frontend
+    build:
+      context: ./frontend
+      args:
+        # Nadpisywalne z env hosta: VITE_API_URL=https://api... docker compose build
+        VITE_API_URL: ${VITE_API_URL:-http://localhost:8000/}
     container_name: roadwatch_frontend
     restart: unless-stopped
     ports:
