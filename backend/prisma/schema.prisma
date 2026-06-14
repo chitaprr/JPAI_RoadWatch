@@ -15,89 +15,99 @@ model User {
   isSuperadmin Boolean  @default(false)
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
+
+  // Powiązanie z gminą tylko dla ról urzędnika/admina; mieszkaniec ma oba null.
+  urzednikGmina   Gmina? @relation("GminaUrzednicy", fields: [urzednikGminaId], references: [id])
+  urzednikGminaId Int?   @map("urzednik_gmina_id")
+  adminGmina      Gmina? @relation("GminaAdmini", fields: [adminGminaId], references: [id])
+  adminGminaId    Int?   @map("admin_gmina_id")
+
+  reportedZgloszenia Zgloszenie[] @relation("ReportedZgloszenia")
+  assignedZgloszenia Zgloszenie[] @relation("AssignedZgloszenia")
 }
 
 model Gmina {
-  id        Int         @id @default(autoincrement())
-  name      String      @db.VarChar
-  
-  users     User[]
+  id   Int    @id @default(autoincrement())
+  name String @db.VarChar
+
+  urzednicy User[] @relation("GminaUrzednicy")
+  admini    User[] @relation("GminaAdmini")
   wykonawcy Wykonawca[]
 
   @@map("Gminy")
 }
 
-
 model Wykonawca {
-  id        Int          @id @default(autoincrement())
-  name      String       @db.VarChar
-  gminaId   Int          @map("gmina_id")
-  nip       String       @db.VarChar
+  id      Int    @id @default(autoincrement())
+  name    String @db.VarChar
+  gminaId Int    @map("gmina_id")
+  nip     String @db.VarChar
 
-  gmina     Gmina        @relation(fields: [gminaId], references: [id])
+  gmina      Gmina        @relation(fields: [gminaId], references: [id])
   zgloszenia Zgloszenie[]
-  naprawy   Naprawa[]
+  naprawy    Naprawa[]
 
   @@map("Wykonawcy")
 }
 
 model Zgloszenie {
-  id           Int        @id @default(autoincrement())
-  userId       Int        @map("user_id")
-  urzednikId   Int?       @map("urzednik_id")
-  contractorId Int?       @map("contractor_id")
-  title        String     @db.VarChar
-  description  String     @db.Text
-  lat          Decimal    @db.Decimal(10, 8)
-  lng          Decimal    @db.Decimal(11, 8)
-  priority     Int        @db.SmallInt
-  status       String     @db.VarChar
-  createdAt    DateTime   @default(now()) @map("created_at") @db.Timestamp()
-  deadline     DateTime   @db.Date
-  updatedAt    DateTime   @updatedAt @map("updated_at") @db.Timestamp()
+  id            Int       @id @default(autoincrement())
+  userId        Int?      @map("user_id")
+  email         String    @db.VarChar
+  urzednikId    Int?      @map("urzednik_id")
+  contractorId  Int?      @map("contractor_id")
+  title         String    @db.VarChar
+  description   String    @db.Text
+  lat           Decimal   @db.Decimal(10, 8)
+  lng           Decimal   @db.Decimal(11, 8)
+  priority      Int       @default(0) @db.SmallInt
+  status        String    @default("Nowe") @db.VarChar
+  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamp()
+  deadline      DateTime? @db.Date
+  updatedAt     DateTime  @updatedAt @map("updated_at") @db.Timestamp()
 
-  user         User       @relation("ReportedZgloszenia", fields: [userId], references: [id])
-  urzednik     User?      @relation("AssignedZgloszenia", fields: [urzednikId], references: [id])
-  wykonawca    Wykonawca? @relation(fields: [contractorId], references: [id])
-  
-  zdjecia      Zdjecie[]
-  naprawy      Naprawa[]
+  user      User?      @relation("ReportedZgloszenia", fields: [userId], references: [id])
+  urzednik  User?      @relation("AssignedZgloszenia", fields: [urzednikId], references: [id])
+  wykonawca Wykonawca? @relation(fields: [contractorId], references: [id])
+
+  zdjecia Zdjecie[]
+  naprawy Naprawa[]
 
   @@map("Zgloszenia")
 }
 
 model Zdjecie {
-  id           Int        @id @default(autoincrement())
-  zgloszenieId Int        @map("zgloszenie_id")
-  filePath     String     @map("file_path") @db.VarChar
-  uploadedAt   DateTime   @default(now()) @map("uploaded_at") @db.Timestamp()
+  id           Int      @id @default(autoincrement())
+  zgloszenieId Int      @map("zgloszenie_id")
+  filePath     String   @map("file_path") @db.VarChar
+  uploadedAt   DateTime @default(now()) @map("uploaded_at") @db.Timestamp()
 
-  zgloszenie   Zgloszenie @relation(fields: [zgloszenieId], references: [id], onDelete: Cascade)
+  zgloszenie Zgloszenie @relation(fields: [zgloszenieId], references: [id], onDelete: Cascade)
 
   @@map("Zdjecia")
 }
 
 model Naprawa {
-  id           Int        @id @default(autoincrement())
-  zadanieId    Int        @map("zadanie_id")
-  contractorId Int        @map("contractor_id")
-  description  String     @db.Text
-  completedAt  DateTime?  @map("completed_at") @db.Timestamp()
+  id           Int      @id @default(autoincrement())
+  zadanieId    Int      @map("zadanie_id")
+  contractorId Int      @map("contractor_id")
+  description  String   @db.Text
+  completedAt  DateTime @map("completed_at") @db.Timestamp()
 
-  zgloszenie   Zgloszenie @relation(fields: [zadanieId], references: [id])
-  wykonawca    Wykonawca  @relation(fields: [contractorId], references: [id])
-  
-  zdjecia      NaprawaZdjecie[]
+  zgloszenie Zgloszenie @relation(fields: [zadanieId], references: [id])
+  wykonawca  Wykonawca  @relation(fields: [contractorId], references: [id])
+
+  zdjecia NaprawaZdjecie[]
 
   @@map("Naprawy")
 }
 
 model NaprawaZdjecie {
-  id        Int     @id @default(autoincrement())
-  naprawaId Int     @map("naprawa_id")
-  filePath  String  @map("file_path") @db.VarChar
+  id        Int    @id @default(autoincrement())
+  naprawaId Int    @map("naprawa_id")
+  filePath  String @map("file_path") @db.VarChar
 
-  naprawa   Naprawa @relation(fields: [naprawaId], references: [id], onDelete: Cascade)
+  naprawa Naprawa @relation(fields: [naprawaId], references: [id], onDelete: Cascade)
 
   @@map("NaprawyZdjecia")
 }
