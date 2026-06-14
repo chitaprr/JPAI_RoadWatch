@@ -2,6 +2,7 @@ import { Router } from "express";
 import {
   createZgloszenie,
   getZgloszenia,
+  getPublicZgloszenia,
   getZgloszenieById,
   updateZgloszenie,
   deleteZgloszenie,
@@ -21,6 +22,9 @@ zgloszenieRouter.post(
   upload.array("zdjecia", 5),
   createZgloszenie,
 );
+
+// Publiczna mapa — odczyt bez logowania. Musi być przed "/:id".
+zgloszenieRouter.get("/public", getPublicZgloszenia);
 
 // Odczyt i operacje triażu — tylko dla zalogowanych.
 zgloszenieRouter.get("/", authenticateJWT, getZgloszenia);

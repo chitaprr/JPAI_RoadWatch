@@ -81,6 +81,24 @@ export const listZgloszenia = () =>
     orderBy: { createdAt: "desc" },
   });
 
+// Publiczna lista do mapy — tylko pola potrzebne do pinezek, bez danych
+// kontaktowych (email) i powiązań użytkowników.
+export const listPublicZgloszenia = () =>
+  prisma.zgloszenie.findMany({
+    select: {
+      id: true,
+      title: true,
+      description: true,
+      lat: true,
+      lng: true,
+      status: true,
+      priority: true,
+      createdAt: true,
+      zdjecia: { select: { id: true, filePath: true } },
+    },
+    orderBy: { createdAt: "desc" },
+  });
+
 export const findZgloszenieById = (id: number) =>
   prisma.zgloszenie.findUnique({
     where: { id },

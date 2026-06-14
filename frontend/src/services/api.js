@@ -8,11 +8,13 @@ const api = axios.create({
   },
 });
 
-// INTERCEPTOR ŻĄDAŃ: Automatycznie dodaje token JWT do każdego zapytania, jeśli istnieje
+// INTERCEPTOR ŻĄDAŃ: Automatycznie dodaje token JWT do każdego zapytania, jeśli istnieje.
+// Żądania z `skipAuth: true` celowo lecą bez tokena (np. zgłoszenie jako gość) —
+// inaczej resztkowy/wygasły token z localStorage byłby odrzucony przez backend (403).
 api.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem("token");
-    if (token) {
+    if (token && !config.skipAuth) {
       config.headers.Authorization = `Bearer ${token}`;
     }
     return config;
@@ -26,7 +28,8 @@ api.interceptors.request.use(
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response && error.response.status === 401) {
+    if (error.response && error.response.status === 403) {
+      console.log("remove token");
       // Jeśli token wygasł lub jest niepoprawny - czyścimy dane i możemy przekierować na logowanie
       localStorage.removeItem("token");
       window.location.href = "/";

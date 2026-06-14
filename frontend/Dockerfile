@@ -1,6 +1,12 @@
 
 FROM node:24-alpine AS build
 WORKDIR /app
+
+# URL backendu wstrzykiwany w czasie builda (Vite wypieka VITE_* na stałe w bundle).
+# W CD: docker build --build-arg VITE_API_URL=https://api.example.com/ ...
+ARG VITE_API_URL=http://localhost:8000/
+ENV VITE_API_URL=$VITE_API_URL
+
 COPY package*.json ./
 RUN npm ci
 COPY . .

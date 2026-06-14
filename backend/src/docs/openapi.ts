@@ -103,6 +103,23 @@ const zgloszenie = z
   })
   .meta({ id: "Zgloszenie" });
 
+// Publiczny widok dla mapy — podzbiór pól bez danych kontaktowych.
+const zgloszeniePublic = z
+  .object({
+    id: z.number(),
+    title: z.string(),
+    description: z.string(),
+    lat: z.string(),
+    lng: z.string(),
+    status: z.string(),
+    priority: z.number(),
+    createdAt: z.string(),
+    zdjecia: z
+      .array(z.object({ id: z.number(), filePath: z.string() }))
+      .optional(),
+  })
+  .meta({ id: "ZgloszeniePublic" });
+
 const idParam = {
   path: z.object({
     id: z.coerce
@@ -275,6 +292,27 @@ export const openApiDocument = createDocument({
           },
           "401": jsonError("Brak tokena"),
           "403": jsonError("Token niepoprawny lub wygasł"),
+          "500": jsonError("Błąd serwera"),
+        },
+      },
+    },
+    "/zgloszenia/public": {
+      get: {
+        tags: ["Zgłoszenia"],
+        summary: "Publiczna lista zgłoszeń (dla mapy)",
+        description:
+          "Otwarte bez logowania. Zwraca minimalny zestaw pól potrzebny do wyświetlenia pinezek na mapie (bez emaila i powiązań użytkowników).",
+        responses: {
+          "200": {
+            description: "Publiczna lista zgłoszeń",
+            content: {
+              "application/json": {
+                schema: successEnvelope({
+                  zgloszenia: z.array(zgloszeniePublic),
+                }),
+              },
+            },
+          },
           "500": jsonError("Błąd serwera"),
         },
       },

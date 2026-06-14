@@ -144,6 +144,22 @@ export const getZgloszenia = async (
   }
 };
 
+// Publiczny odczyt dla mapy — bez logowania, minimalny zestaw pól.
+export const getPublicZgloszenia = async (
+  _req: AuthenticatedRequest,
+  res: Response,
+) => {
+  try {
+    const zgloszenia = await zgloszenieService.listPublicZgloszenia();
+    return SUCCESS(res, "Publiczna lista zgłoszeń", { zgloszenia });
+  } catch {
+    return SERVER_ERROR(
+      res,
+      "Wystąpił błąd serwera podczas pobierania zgłoszeń.",
+    );
+  }
+};
+
 export const getZgloszenieById = async (
   req: AuthenticatedRequest,
   res: Response,

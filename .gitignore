@@ -1,3 +1,5 @@
 node_modules
 .env
+.env.*
 postgres_data
+uploaded_files
