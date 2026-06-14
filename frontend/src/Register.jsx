@@ -4,21 +4,30 @@ import api from "./services/api";
 import { saveAuth } from "./services/auth";
 import Navbar from "./Navbar";
 
-function Login() {
+function Register() {
+  const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const navigate = useNavigate();
 
-  const handleLogin = async (event) => {
+  const handleRegister = async (event) => {
     event.preventDefault();
 
     try {
-      const response = await api.post("/auth/login", { email, password });
-      // Backend (SUCCESS) zwraca kopertę { success, msg, token, user } na top-level.
-      saveAuth(response.data.token, response.data.user);
+      const response = await api.post("/auth/register", {
+        name,
+        email,
+        password,
+      });
+      // Backend (CREATED) zagnieżdża payload pod `data`: { data: { token, user } }.
+      const { token, user } = response.data.data;
+      saveAuth(token, user);
       navigate("/");
-    } catch {
-      alert("Błędny email lub hasło. Spróbuj ponownie!");
+    } catch (error) {
+      const msg =
+        error.response?.data?.msg ??
+        "Nie udało się zarejestrować. Spróbuj ponownie.";
+      alert(msg);
     }
   };
 
@@ -33,10 +42,10 @@ function Login() {
           marginTop: "80px",
         }}
       >
-        <h2>Logowanie do RoadWatch</h2>
+        <h2>Rejestracja w RoadWatch</h2>
 
         <form
-          onSubmit={handleLogin}
+          onSubmit={handleRegister}
           style={{
             display: "flex",
             flexDirection: "column",
@@ -44,6 +53,14 @@ function Login() {
             width: "300px",
           }}
         >
+          <input
+            type="text"
+            placeholder="Imię i nazwisko"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            minLength={2}
+            required
+          />
           <input
             type="email"
             placeholder="Twój adres e-mail"
@@ -53,22 +70,23 @@ function Login() {
           />
           <input
             type="password"
-            placeholder="Hasło"
+            placeholder="Hasło (min. 6 znaków)"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
+            minLength={6}
             required
           />
           <button type="submit" style={{ padding: "10px", cursor: "pointer" }}>
-            Zaloguj się
+            Zarejestruj się
           </button>
         </form>
 
         <p style={{ marginTop: "20px", fontSize: "14px" }}>
-          Nie masz konta? <Link to="/register">Zarejestruj się</Link>
+          Masz już konto? <Link to="/login">Zaloguj się</Link>
         </p>
       </div>
     </div>
   );
 }
 
-export default Login;
+export default Register;
