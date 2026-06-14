@@ -16,7 +16,7 @@ model User {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
- 
+  // Powiązanie z gminą tylko dla ról urzędnika/admina; mieszkaniec ma oba null.
   urzednikGmina   Gmina? @relation("GminaUrzednicy", fields: [urzednikGminaId], references: [id])
   urzednikGminaId Int?   @map("urzednik_gmina_id")
   adminGmina      Gmina? @relation("GminaAdmini", fields: [adminGminaId], references: [id])
@@ -30,8 +30,8 @@ model Gmina {
   id   Int    @id @default(autoincrement())
   name String @db.VarChar
 
-  urzednicy User[] @relation("GminaUrzednicy")
-  admini    User[] @relation("GminaAdmini")
+  urzednicy User[]      @relation("GminaUrzednicy")
+  admini    User[]      @relation("GminaAdmini")
   wykonawcy Wykonawca[]
 
   @@map("Gminy")
@@ -51,20 +51,20 @@ model Wykonawca {
 }
 
 model Zgloszenie {
-  id            Int       @id @default(autoincrement())
-  userId        Int?      @map("user_id")
-  email         String    @db.VarChar
-  urzednikId    Int?      @map("urzednik_id")
-  contractorId  Int?      @map("contractor_id")
-  title         String    @db.VarChar
-  description   String    @db.Text
-  lat           Decimal   @db.Decimal(10, 8)
-  lng           Decimal   @db.Decimal(11, 8)
-  priority      Int       @default(0) @db.SmallInt
-  status        String    @default("Nowe") @db.VarChar
-  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamp()
-  deadline      DateTime? @db.Date
-  updatedAt     DateTime  @updatedAt @map("updated_at") @db.Timestamp()
+  id           Int       @id @default(autoincrement())
+  userId       Int?      @map("user_id")
+  email        String    @db.VarChar
+  urzednikId   Int?      @map("urzednik_id")
+  contractorId Int?      @map("contractor_id")
+  title        String    @db.VarChar
+  description  String    @db.Text
+  lat          Decimal   @db.Decimal(10, 8)
+  lng          Decimal   @db.Decimal(11, 8)
+  priority     Int       @default(0) @db.SmallInt
+  status       String    @default("Nowe") @db.VarChar
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamp()
+  deadline     DateTime? @db.Date
+  updatedAt    DateTime  @updatedAt @map("updated_at") @db.Timestamp()
 
   user      User?      @relation("ReportedZgloszenia", fields: [userId], references: [id])
   urzednik  User?      @relation("AssignedZgloszenia", fields: [urzednikId], references: [id])

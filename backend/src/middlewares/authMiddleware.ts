@@ -37,3 +37,33 @@ export const authenticateJWT = (
     next();
   });
 };
+
+/**
+ * Doczepia użytkownika, jeśli podano poprawny token, ale nie wymaga go.
+ * Brak nagłówka -> żądanie leci dalej jako gość (req.user pozostaje undefined).
+ * Obecny, lecz niepoprawny token -> odrzucenie (403).
+ */
+export const optionalAuth = (
+  req: AuthenticatedRequest,
+  res: Response,
+  next: NextFunction,
+): void => {
+  const authHeader = req.headers.authorization;
+
+  if (!authHeader) {
+    next();
+    return;
+  }
+
+  const token = authHeader.split(" ")[1];
+
+  jwt.verify(token, JWT_SECRET, (err, decoded) => {
+    if (err) {
+      FORBIDDEN(res, "Token jest niepoprawny lub wygasł.");
+      return;
+    }
+
+    req.user = decoded as AuthenticatedRequest["user"];
+    next();
+  });
+};
