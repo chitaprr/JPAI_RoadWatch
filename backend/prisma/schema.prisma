@@ -16,7 +16,7 @@ model User {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  // Powiązanie z gminą tylko dla ról urzędnika/admina; mieszkaniec ma oba null.
+ 
   urzednikGmina   Gmina? @relation("GminaUrzednicy", fields: [urzednikGminaId], references: [id])
   urzednikGminaId Int?   @map("urzednik_gmina_id")
   adminGmina      Gmina? @relation("GminaAdmini", fields: [adminGminaId], references: [id])

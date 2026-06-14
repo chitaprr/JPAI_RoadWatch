@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import { z } from 'zod';
-import prisma from '../utils/prisma'; // Importujemy Twoją instancję z adapterem PG
+import prisma from '../utils/prisma'; 
 
 const CreateZgloszenieSchema = z.object({
   userId: z.number().int().optional(),
@@ -37,7 +37,7 @@ export const createZgloszenie = async (req: Request, res: Response) => {
     res.status(201).json(zgloszenie);
   } catch (error: any) {
     if (error instanceof z.ZodError) {
-      return res.status(400).json({ errors: error.errors });
+      return res.status(400).json({ errors: error.issues });
     }
     res.status(500).json({ error: 'Błąd serwera podczas dodawania zgłoszenia' });
   }
@@ -78,7 +78,7 @@ export const updateZgloszenie = async (req: Request, res: Response) => {
     });
     res.status(200).json(updated);
   } catch (error: any) {
-    if (error instanceof z.ZodError) return res.status(400).json({ errors: error.errors });
+    if (error instanceof z.ZodError) return res.status(400).json({ errors: error.issues });
     if (error.code === 'P2025') return res.status(404).json({ message: 'Zgłoszenie nie istnieje' });
     res.status(500).json({ error: 'Błąd serwera podczas aktualizacji' });
   }
