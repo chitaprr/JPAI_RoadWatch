@@ -25,6 +25,7 @@ services:
       - ./backend/.env
     environment:
       UPLOAD_DIR: /app/upload
+      DATABASE_URL: "postgresql://roadwatch:roadwatch@postgres:5432/roadwatch?schema=public"
     ports:
       - "8000:8000"
     volumes:
