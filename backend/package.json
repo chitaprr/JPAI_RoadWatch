@@ -16,6 +16,7 @@
     "prisma:studio": "prisma studio",
     "prisma:validate": "prisma validate",
     "prisma:format": "prisma format",
+    "docs:generate": "ts-node src/docs/generate.ts",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "format": "prettier --write \"src/**/*.ts\" \"config/**/*.ts\"",
@@ -37,6 +38,7 @@
     "@types/node": "^24.0.0",
     "@types/pg": "^8.20.0",
     "@types/supertest": "^7.2.0",
+    "@types/swagger-ui-express": "^4.1.8",
     "eslint": "^10.4.0",
     "eslint-config-prettier": "^10.1.8",
     "nodemon": "^3.1.14",
@@ -60,7 +62,9 @@
     "jsonwebtoken": "^9.0.3",
     "multer": "^2.1.1",
     "pg": "^8.21.0",
+    "swagger-ui-express": "^5.0.1",
     "winston": "^3.19.0",
-    "zod": "^4.4.3"
+    "zod": "^4.4.3",
+    "zod-openapi": "^6.0.0"
   }
 }

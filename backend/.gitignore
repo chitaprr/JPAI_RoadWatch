@@ -5,3 +5,6 @@ dist
 *.log
 src/generated
 upload
+
+# Wygenerowana statycznie specyfikacja OpenAPI (npm run docs:generate)
+openapi.json
