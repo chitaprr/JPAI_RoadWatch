@@ -29,7 +29,7 @@ api.interceptors.response.use(
     if (error.response && error.response.status === 401) {
       // Jeśli token wygasł lub jest niepoprawny - czyścimy dane i możemy przekierować na logowanie
       localStorage.removeItem("token");
-      window.location.href = "/login";
+      window.location.href = "/";
     }
     return Promise.reject(error);
   },

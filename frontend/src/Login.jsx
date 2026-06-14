@@ -12,22 +12,14 @@ function Login() {
 
   // 3. Co ma się stać po kliknięciu "Zaloguj"
   const handleLogin = async (event) => {
-    event.preventDefault(); // Blokuje głupie odświeżanie całej strony
+    event.preventDefault();
 
     try {
-      // Dajemy kelnerowi dane i każemy mu iść do kuchni (backendu)
-      const response = await api.post("/auth/login", {
-        email: email,
-        password: password,
-      });
-
-      // Jeśli backend powie "Znam go!", dostajemy token i zapisujemy go w pamięci przeglądarki
+      const response = await api.post("/auth/login", { email, password });
+      // Backend zwraca kopertę { success, msg, token, user } (token na top-level).
       localStorage.setItem("token", response.data.token);
-      alert("Udało się zalogować!");
-
-      // Otwieramy drzwi do klubu i wpuszczamy na mapę
-      navigate("/");
-    } catch (_error) {
+      navigate("/mapa");
+    } catch {
       alert("Błędny email lub hasło. Spróbuj ponownie!");
     }
   };
@@ -71,6 +63,21 @@ function Login() {
           Zaloguj się
         </button>
       </form>
+      {/* Przycisk do zgłaszania usterki dla niezalogowanych */}
+      <button
+        onClick={() => navigate("/zgloszenie")}
+        style={{
+          marginTop: "20px",
+          padding: "10px",
+          cursor: "pointer",
+          backgroundColor: "#dc3545",
+          color: "white",
+          border: "none",
+          borderRadius: "5px",
+        }}
+      >
+        Zgłoś usterkę bez logowania
+      </button>
     </div>
   );
 }
