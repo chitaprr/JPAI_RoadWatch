@@ -74,3 +74,35 @@ export const createZgloszenie = (data: {
     },
     include: { zdjecia: true },
   });
+
+export const listZgloszenia = () =>
+  prisma.zgloszenie.findMany({
+    include: { zdjecia: true },
+    orderBy: { createdAt: "desc" },
+  });
+
+export const findZgloszenieById = (id: number) =>
+  prisma.zgloszenie.findUnique({
+    where: { id },
+    include: { zdjecia: true, naprawy: true },
+  });
+
+// Pola triażu, które urzędnik może aktualizować. undefined = bez zmiany.
+export const updateZgloszenie = (
+  id: number,
+  data: {
+    urzednikId?: number | null;
+    contractorId?: number | null;
+    priority?: number;
+    status?: string;
+    deadline?: Date | null;
+  },
+) =>
+  prisma.zgloszenie.update({
+    where: { id },
+    data,
+    include: { zdjecia: true },
+  });
+
+export const deleteZgloszenie = (id: number) =>
+  prisma.zgloszenie.delete({ where: { id } });

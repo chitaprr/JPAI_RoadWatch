@@ -3,9 +3,11 @@ import fs from "fs";
 import path from "path";
 import { z } from "zod";
 import {
+  SUCCESS,
   CREATED,
   CONFLICT,
   BAD_REQUEST,
+  NOT_FOUND,
   SERVER_ERROR,
   MISSING_BODY_FIELDS,
 } from "../../utils/httpCodeResponses/messages";
@@ -28,6 +30,24 @@ export const createSchema = z.object({
     .optional()
     .transform((v) => v === true || v === "true"),
 });
+
+// Pola triażu aktualizowane przez urzędnika. Każde opcjonalne -> aktualizacja
+// częściowa (pominięte pole pozostaje bez zmian). Statusy: zob. ACTIVE_STATUSES
+// w zgloszenie.service.ts.
+export const updateSchema = z.object({
+  urzednikId: z.number().int().nullable().optional(),
+  contractorId: z.number().int().nullable().optional(),
+  priority: z.number().int().min(0).max(3).optional(),
+  status: z.string().min(1).optional(),
+  deadline: z.iso.datetime().nullable().optional(),
+});
+
+// Prisma rzuca P2025, gdy rekord do update/delete nie istnieje.
+const isRecordNotFound = (error: unknown): boolean =>
+  typeof error === "object" &&
+  error !== null &&
+  "code" in error &&
+  (error as { code?: string }).code === "P2025";
 
 const cleanupFiles = (files: Express.Multer.File[]) => {
   for (const file of files) {
@@ -99,6 +119,98 @@ export const createZgloszenie = async (
     return SERVER_ERROR(
       res,
       "Wystąpił błąd serwera podczas tworzenia zgłoszenia.",
+    );
+  }
+};
+
+const parseId = (raw: string | string[] | undefined): number | null => {
+  if (typeof raw !== "string") return null;
+  const id = Number(raw);
+  return Number.isInteger(id) && id > 0 ? id : null;
+};
+
+export const getZgloszenia = async (
+  _req: AuthenticatedRequest,
+  res: Response,
+) => {
+  try {
+    const zgloszenia = await zgloszenieService.listZgloszenia();
+    return SUCCESS(res, "Lista zgłoszeń", { zgloszenia });
+  } catch {
+    return SERVER_ERROR(
+      res,
+      "Wystąpił błąd serwera podczas pobierania zgłoszeń.",
+    );
+  }
+};
+
+export const getZgloszenieById = async (
+  req: AuthenticatedRequest,
+  res: Response,
+) => {
+  try {
+    const id = parseId(req.params.id);
+    if (id === null) return BAD_REQUEST(res, "Niepoprawne id zgłoszenia.");
+
+    const zgloszenie = await zgloszenieService.findZgloszenieById(id);
+    if (!zgloszenie) return NOT_FOUND(res, "Nie znaleziono zgłoszenia.");
+
+    return SUCCESS(res, "Zgłoszenie", { zgloszenie });
+  } catch {
+    return SERVER_ERROR(
+      res,
+      "Wystąpił błąd serwera podczas pobierania zgłoszenia.",
+    );
+  }
+};
+
+export const updateZgloszenie = async (
+  req: AuthenticatedRequest,
+  res: Response,
+) => {
+  try {
+    const id = parseId(req.params.id);
+    if (id === null) return BAD_REQUEST(res, "Niepoprawne id zgłoszenia.");
+
+    const parsed = updateSchema.safeParse(req.body);
+    if (!parsed.success) return MISSING_BODY_FIELDS(res, parsed.error.issues);
+
+    // deadline: string ISO -> Date; null -> czyści; undefined -> bez zmiany.
+    const { deadline, ...rest } = parsed.data;
+    const zgloszenie = await zgloszenieService.updateZgloszenie(id, {
+      ...rest,
+      ...(deadline === undefined
+        ? {}
+        : { deadline: deadline === null ? null : new Date(deadline) }),
+    });
+
+    return SUCCESS(res, "Zgłoszenie zaktualizowane.", { zgloszenie });
+  } catch (error) {
+    if (isRecordNotFound(error))
+      return NOT_FOUND(res, "Nie znaleziono zgłoszenia.");
+    return SERVER_ERROR(
+      res,
+      "Wystąpił błąd serwera podczas aktualizacji zgłoszenia.",
+    );
+  }
+};
+
+export const deleteZgloszenie = async (
+  req: AuthenticatedRequest,
+  res: Response,
+) => {
+  try {
+    const id = parseId(req.params.id);
+    if (id === null) return BAD_REQUEST(res, "Niepoprawne id zgłoszenia.");
+
+    await zgloszenieService.deleteZgloszenie(id);
+    return SUCCESS(res, "Zgłoszenie zostało usunięte.");
+  } catch (error) {
+    if (isRecordNotFound(error))
+      return NOT_FOUND(res, "Nie znaleziono zgłoszenia.");
+    return SERVER_ERROR(
+      res,
+      "Wystąpił błąd serwera podczas usuwania zgłoszenia.",
     );
   }
 };
