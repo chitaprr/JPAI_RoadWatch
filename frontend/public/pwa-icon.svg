@@ -1,0 +1,12 @@
+<!-- PLACEHOLDER ikony PWA. Podmień na właściwe logo (najlepiej dodaj też PNG 192/512/maskable do public/). -->
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+  <rect width="512" height="512" rx="96" fill="#1f2937"/>
+  <!-- droga -->
+  <path d="M196 432 L236 120 H276 L316 432 Z" fill="#4b5563"/>
+  <rect x="248" y="150" width="16" height="48" rx="8" fill="#facc15"/>
+  <rect x="248" y="226" width="16" height="48" rx="8" fill="#facc15"/>
+  <rect x="248" y="302" width="16" height="48" rx="8" fill="#facc15"/>
+  <!-- pinezka -->
+  <circle cx="256" cy="150" r="60" fill="#dc3545"/>
+  <circle cx="256" cy="150" r="24" fill="#ffffff"/>
+</svg>
