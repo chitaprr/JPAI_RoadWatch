@@ -16,7 +16,7 @@ import * as zgloszenieService from "./zgloszenie.service";
 const DUPLICATE_RADIUS_M = 50;
 
 // Pola przychodzą jako multipart/form-data (stringi), więc koercja liczb/boola.
-const createSchema = z.object({
+export const createSchema = z.object({
   title: z.string().min(3, { message: "Tytuł musi mieć minimum 3 znaki" }),
   description: z.string().min(3, { message: "Opis musi mieć minimum 3 znaki" }),
   lat: z.coerce.number().min(-90).max(90),

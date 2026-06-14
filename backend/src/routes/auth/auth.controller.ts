@@ -10,13 +10,13 @@ import {
 } from "../../utils/httpCodeResponses/messages";
 import * as authService from "./auth.service";
 
-const registerSchema = z.object({
+export const registerSchema = z.object({
   email: z.email({ message: "Niepoprawny format adresu email" }),
   name: z.string().min(2, { message: "Imię musi mieć minimum 2 znaki" }),
   password: z.string().min(6, { message: "Hasło musi mieć minimum 6 znaków" }),
 });
 
-const loginSchema = z.object({
+export const loginSchema = z.object({
   email: z.email({ message: "Niepoprawny format adresu email" }),
   password: z.string().min(1, { message: "Hasło jest wymagane" }),
 });
