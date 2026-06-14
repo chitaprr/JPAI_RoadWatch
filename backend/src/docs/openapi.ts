@@ -1,7 +1,10 @@
 import { z } from "zod";
 import { createDocument } from "zod-openapi";
 import { registerSchema, loginSchema } from "../routes/auth/auth.controller";
-import { createSchema } from "../routes/zgloszenie/zgloszenie.controller";
+import {
+  createSchema,
+  updateSchema,
+} from "../routes/zgloszenie/zgloszenie.controller";
 
 /**
  * Specyfikacja OpenAPI generowana z tych samych schematów Zod, które walidują
@@ -69,6 +72,46 @@ const zgloszenieDuplicate = z
     lng: z.number(),
   })
   .meta({ id: "ZgloszenieDuplicate" });
+
+const zdjecie = z
+  .object({
+    id: z.number(),
+    zgloszenieId: z.number(),
+    filePath: z.string(),
+    uploadedAt: z.string(),
+  })
+  .meta({ id: "Zdjecie" });
+
+// lat/lng to Decimal w bazie — Prisma serializuje je jako string w JSON.
+const zgloszenie = z
+  .object({
+    id: z.number(),
+    userId: z.number().nullable(),
+    email: z.email(),
+    urzednikId: z.number().nullable(),
+    contractorId: z.number().nullable(),
+    title: z.string(),
+    description: z.string(),
+    lat: z.string(),
+    lng: z.string(),
+    priority: z.number(),
+    status: z.string(),
+    deadline: z.string().nullable(),
+    createdAt: z.string(),
+    updatedAt: z.string(),
+    zdjecia: z.array(zdjecie).optional(),
+  })
+  .meta({ id: "Zgloszenie" });
+
+const idParam = {
+  path: z.object({
+    id: z.coerce
+      .number()
+      .int()
+      .positive()
+      .meta({ description: "ID zgłoszenia" }),
+  }),
+};
 
 const jsonError = (
   description: string,
@@ -200,9 +243,7 @@ export const openApiDocument = createDocument({
             description: "Zgłoszenie utworzone",
             content: {
               "application/json": {
-                schema: createdEnvelope(
-                  z.object({ zgloszenie: z.record(z.string(), z.unknown()) }),
-                ),
+                schema: createdEnvelope(z.object({ zgloszenie })),
               },
             },
           },
@@ -216,6 +257,97 @@ export const openApiDocument = createDocument({
               duplicates: z.array(zgloszenieDuplicate),
             }).extend({ success: z.literal(false) }),
           ),
+          "500": jsonError("Błąd serwera"),
+        },
+      },
+      get: {
+        tags: ["Zgłoszenia"],
+        summary: "Lista wszystkich zgłoszeń",
+        security: [{ bearerAuth: [] }],
+        responses: {
+          "200": {
+            description: "Lista zgłoszeń",
+            content: {
+              "application/json": {
+                schema: successEnvelope({ zgloszenia: z.array(zgloszenie) }),
+              },
+            },
+          },
+          "401": jsonError("Brak tokena"),
+          "403": jsonError("Token niepoprawny lub wygasł"),
+          "500": jsonError("Błąd serwera"),
+        },
+      },
+    },
+    "/zgloszenia/{id}": {
+      get: {
+        tags: ["Zgłoszenia"],
+        summary: "Pobranie zgłoszenia po ID",
+        security: [{ bearerAuth: [] }],
+        requestParams: idParam,
+        responses: {
+          "200": {
+            description: "Zgłoszenie",
+            content: {
+              "application/json": {
+                schema: successEnvelope({ zgloszenie }),
+              },
+            },
+          },
+          "400": jsonError("Niepoprawne id"),
+          "401": jsonError("Brak tokena"),
+          "404": jsonError("Nie znaleziono zgłoszenia"),
+          "500": jsonError("Błąd serwera"),
+        },
+      },
+      patch: {
+        tags: ["Zgłoszenia"],
+        summary: "Aktualizacja zgłoszenia (triaż urzędnika)",
+        description:
+          "Aktualizacja częściowa — przekazuje się tylko zmieniane pola.",
+        security: [{ bearerAuth: [] }],
+        requestParams: idParam,
+        requestBody: {
+          content: { "application/json": { schema: updateSchema } },
+        },
+        responses: {
+          "200": {
+            description: "Zgłoszenie zaktualizowane",
+            content: {
+              "application/json": {
+                schema: successEnvelope({ zgloszenie }),
+              },
+            },
+          },
+          "400": jsonError(
+            "Błąd walidacji / niepoprawne id",
+            validationErrorEnvelope,
+          ),
+          "401": jsonError("Brak tokena"),
+          "404": jsonError("Nie znaleziono zgłoszenia"),
+          "500": jsonError("Błąd serwera"),
+        },
+      },
+      delete: {
+        tags: ["Zgłoszenia"],
+        summary: "Usunięcie zgłoszenia",
+        security: [{ bearerAuth: [] }],
+        requestParams: idParam,
+        responses: {
+          "200": {
+            description: "Zgłoszenie usunięte",
+            content: {
+              "application/json": {
+                schema: z.object({
+                  success: z.literal(true),
+                  msg: z.string(),
+                }),
+              },
+            },
+          },
+          "400": jsonError("Niepoprawne id"),
+          "401": jsonError("Brak tokena"),
+          "404": jsonError("Nie znaleziono zgłoszenia"),
           "500": jsonError("Błąd serwera"),
         },
       },

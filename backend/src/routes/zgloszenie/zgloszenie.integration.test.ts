@@ -199,3 +199,188 @@ describe("POST /zgloszenia", () => {
     expect(res.status).toBe(201);
   });
 });
+
+// Operacje CRUD wymagają zalogowania. Rekordy do odczytu/edycji/usuwania
+// tworzymy bezpośrednio przez Prisma, żeby ominąć logikę duplikatów z POST
+// i utrzymać izolację testów.
+const createTestZgloszenie = (
+  overrides: Partial<{
+    status: string;
+    priority: number;
+    lat: number;
+    lng: number;
+  }> = {},
+) =>
+  prisma.zgloszenie.create({
+    data: {
+      email: `crud${TEST_DOMAIN}`,
+      title: "Zgłoszenie CRUD",
+      description: "Rekord testowy dla operacji CRUD",
+      lat: 41.1,
+      lng: 11.1,
+      ...overrides,
+    },
+  });
+
+describe("GET /zgloszenia", () => {
+  let token: string;
+  beforeAll(async () => {
+    token = await registerAndToken(`list${TEST_DOMAIN}`);
+  });
+
+  it("bez tokena zwraca 401", async () => {
+    const res = await request(server).get("/zgloszenia");
+    expect(res.status).toBe(401);
+  });
+
+  it("z tokenem zwraca listę zgłoszeń (200)", async () => {
+    await createTestZgloszenie();
+    const res = await request(server)
+      .get("/zgloszenia")
+      .set("Authorization", `Bearer ${token}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body.success).toBe(true);
+    expect(Array.isArray(res.body.zgloszenia)).toBe(true);
+    expect(res.body.zgloszenia.length).toBeGreaterThan(0);
+  });
+});
+
+describe("GET /zgloszenia/:id", () => {
+  let token: string;
+  beforeAll(async () => {
+    token = await registerAndToken(`getone${TEST_DOMAIN}`);
+  });
+
+  it("bez tokena zwraca 401", async () => {
+    const created = await createTestZgloszenie();
+    const res = await request(server).get(`/zgloszenia/${created.id}`);
+    expect(res.status).toBe(401);
+  });
+
+  it("niepoprawne id zwraca 400", async () => {
+    const res = await request(server)
+      .get("/zgloszenia/abc")
+      .set("Authorization", `Bearer ${token}`);
+    expect(res.status).toBe(400);
+  });
+
+  it("nieistniejące id zwraca 404", async () => {
+    const res = await request(server)
+      .get("/zgloszenia/999999999")
+      .set("Authorization", `Bearer ${token}`);
+    expect(res.status).toBe(404);
+  });
+
+  it("istniejące zgłoszenie zwraca 200 z danymi", async () => {
+    const created = await createTestZgloszenie();
+    const res = await request(server)
+      .get(`/zgloszenia/${created.id}`)
+      .set("Authorization", `Bearer ${token}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body.zgloszenie.id).toBe(created.id);
+    expect(Array.isArray(res.body.zgloszenie.zdjecia)).toBe(true);
+  });
+});
+
+describe("PATCH /zgloszenia/:id", () => {
+  let token: string;
+  beforeAll(async () => {
+    token = await registerAndToken(`patch${TEST_DOMAIN}`);
+  });
+
+  it("bez tokena zwraca 401", async () => {
+    const created = await createTestZgloszenie();
+    const res = await request(server)
+      .patch(`/zgloszenia/${created.id}`)
+      .send({ status: "W trakcie" });
+    expect(res.status).toBe(401);
+  });
+
+  it("aktualizuje status i priorytet (200)", async () => {
+    const created = await createTestZgloszenie();
+    const res = await request(server)
+      .patch(`/zgloszenia/${created.id}`)
+      .set("Authorization", `Bearer ${token}`)
+      .send({ status: "W trakcie", priority: 2 });
+
+    expect(res.status).toBe(200);
+    expect(res.body.zgloszenie.status).toBe("W trakcie");
+    expect(res.body.zgloszenie.priority).toBe(2);
+  });
+
+  it("aktualizacja częściowa nie kasuje pominiętego deadline", async () => {
+    const deadline = new Date("2030-01-01T00:00:00.000Z");
+    const created = await prisma.zgloszenie.create({
+      data: {
+        email: `crud${TEST_DOMAIN}`,
+        title: "Z deadline",
+        description: "Rekord z ustawionym terminem",
+        lat: 42.2,
+        lng: 12.2,
+        deadline,
+      },
+    });
+
+    const res = await request(server)
+      .patch(`/zgloszenia/${created.id}`)
+      .set("Authorization", `Bearer ${token}`)
+      .send({ status: "Zlecone" });
+
+    expect(res.status).toBe(200);
+    // Pominięty deadline pozostaje bez zmian (regresja: wcześniej był zerowany).
+    expect(res.body.zgloszenie.deadline).not.toBeNull();
+  });
+
+  it("niepoprawny priorytet (>3) zwraca 400", async () => {
+    const created = await createTestZgloszenie();
+    const res = await request(server)
+      .patch(`/zgloszenia/${created.id}`)
+      .set("Authorization", `Bearer ${token}`)
+      .send({ priority: 9 });
+    expect(res.status).toBe(400);
+  });
+
+  it("nieistniejące id zwraca 404", async () => {
+    const res = await request(server)
+      .patch("/zgloszenia/999999999")
+      .set("Authorization", `Bearer ${token}`)
+      .send({ status: "W trakcie" });
+    expect(res.status).toBe(404);
+  });
+});
+
+describe("DELETE /zgloszenia/:id", () => {
+  let token: string;
+  beforeAll(async () => {
+    token = await registerAndToken(`delete${TEST_DOMAIN}`);
+  });
+
+  it("bez tokena zwraca 401", async () => {
+    const created = await createTestZgloszenie();
+    const res = await request(server).delete(`/zgloszenia/${created.id}`);
+    expect(res.status).toBe(401);
+  });
+
+  it("usuwa istniejące zgłoszenie (200), potem GET daje 404", async () => {
+    const created = await createTestZgloszenie();
+    const del = await request(server)
+      .delete(`/zgloszenia/${created.id}`)
+      .set("Authorization", `Bearer ${token}`);
+    expect(del.status).toBe(200);
+    expect(del.body.success).toBe(true);
+
+    const get = await request(server)
+      .get(`/zgloszenia/${created.id}`)
+      .set("Authorization", `Bearer ${token}`);
+    expect(get.status).toBe(404);
+  });
+
+  it("nieistniejące id zwraca 404", async () => {
+    const res = await request(server)
+      .delete("/zgloszenia/999999999")
+      .set("Authorization", `Bearer ${token}`);
+    expect(res.status).toBe(404);
+  });
+});

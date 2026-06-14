@@ -1,6 +1,15 @@
 import { Router } from "express";
-import { createZgloszenie } from "./zgloszenie.controller";
-import { optionalAuth } from "../../middlewares/authMiddleware";
+import {
+  createZgloszenie,
+  getZgloszenia,
+  getZgloszenieById,
+  updateZgloszenie,
+  deleteZgloszenie,
+} from "./zgloszenie.controller";
+import {
+  authenticateJWT,
+  optionalAuth,
+} from "../../middlewares/authMiddleware";
 import upload from "../../middlewares/upload";
 
 const zgloszenieRouter = Router();
@@ -12,5 +21,11 @@ zgloszenieRouter.post(
   upload.array("zdjecia", 5),
   createZgloszenie,
 );
+
+// Odczyt i operacje triażu — tylko dla zalogowanych.
+zgloszenieRouter.get("/", authenticateJWT, getZgloszenia);
+zgloszenieRouter.get("/:id", authenticateJWT, getZgloszenieById);
+zgloszenieRouter.patch("/:id", authenticateJWT, updateZgloszenie);
+zgloszenieRouter.delete("/:id", authenticateJWT, deleteZgloszenie);
 
 export default zgloszenieRouter;
