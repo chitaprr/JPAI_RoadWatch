@@ -23,13 +23,9 @@ export const createUser = async (data: {
 export const verifyPassword = (plain: string, hash: string) =>
   bcrypt.compare(plain, hash);
 
-export const generateToken = (user: {
-  id: number;
-  email: string;
-  isSuperadmin: boolean;
-}) =>
-  jwt.sign(
-    { userId: user.id, email: user.email, isSuperadmin: user.isSuperadmin },
-    JWT_SECRET,
-    { expiresIn: "24h" },
-  );
+// Token niesie tylko tożsamość — rola/gmina/flagi są czytane z bazy w
+// authMiddleware przy każdym żądaniu (zob. loadUser).
+export const generateToken = (user: { id: number; email: string }) =>
+  jwt.sign({ userId: user.id, email: user.email }, JWT_SECRET, {
+    expiresIn: "24h",
+  });

@@ -38,6 +38,7 @@ export const register = async (req: Request, res: Response) => {
         id: newUser.id,
         email: newUser.email,
         name: newUser.name,
+        role: newUser.role,
         isSuperadmin: newUser.isSuperadmin,
       },
     });
@@ -68,6 +69,7 @@ export const login = async (req: Request, res: Response) => {
         id: user.id,
         email: user.email,
         name: user.name,
+        role: user.role,
         isSuperadmin: user.isSuperadmin,
       },
     });

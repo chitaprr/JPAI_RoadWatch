@@ -17,11 +17,44 @@ const PNG = Buffer.from(
 
 const attachPng = (req: request.Test) => req.attach("zdjecia", PNG, "test.png");
 
+// Nazwa gminy testowej (marker do sprzątania). Zgłoszenia muszą mieć gminę,
+// a urzędnik widzi/edytuje tylko zgłoszenia ze swojej gminy.
+const TEST_GMINA = "VitestGmina";
+let gminaId: number;
+
 const registerAndToken = async (email: string): Promise<string> => {
   const res = await request(server)
     .post("/auth/register")
     .send({ email, name: "Vitest User", password: "secret123" });
   return res.body.data.token as string;
+};
+
+const loginToken = async (email: string): Promise<string> => {
+  const res = await request(server)
+    .post("/auth/login")
+    .send({ email, password: "secret123" });
+  return res.body.token as string;
+};
+
+// Rejestruje konto, podnosi je do roli URZEDNIK w gminie testowej, po czym
+// loguje ponownie — token JWT musi nieść zaktualizowaną rolę/gminę.
+const makeUrzednikToken = async (email: string): Promise<string> => {
+  await request(server)
+    .post("/auth/register")
+    .send({ email, name: "Urzędnik", password: "secret123" });
+  await prisma.user.update({
+    where: { email },
+    data: { role: "URZEDNIK", urzednikGminaId: gminaId },
+  });
+  return loginToken(email);
+};
+
+const makeSuperadminToken = async (email: string): Promise<string> => {
+  await request(server)
+    .post("/auth/register")
+    .send({ email, name: "Superadmin", password: "secret123" });
+  await prisma.user.update({ where: { email }, data: { isSuperadmin: true } });
+  return loginToken(email);
 };
 
 const cleanup = async () => {
@@ -31,9 +64,14 @@ const cleanup = async () => {
   await prisma.user.deleteMany({
     where: { email: { endsWith: TEST_DOMAIN } },
   });
+  await prisma.gmina.deleteMany({ where: { name: TEST_GMINA } });
 };
 
 beforeAll(cleanup);
+beforeAll(async () => {
+  const g = await prisma.gmina.create({ data: { name: TEST_GMINA } });
+  gminaId = g.id;
+});
 
 afterAll(async () => {
   await cleanup();
@@ -50,6 +88,7 @@ describe("POST /zgloszenia", () => {
         .field("description", "Zgłoszenie od niezalogowanego")
         .field("lat", "50.0")
         .field("lng", "19.9")
+        .field("gminaId", String(gminaId))
         .field("email", `gosc${TEST_DOMAIN}`),
     );
 
@@ -73,7 +112,8 @@ describe("POST /zgloszenia", () => {
         .field("title", "Bez emaila")
         .field("description", "Powinno zostać odrzucone")
         .field("lat", "48.0")
-        .field("lng", "18.0"),
+        .field("lng", "18.0")
+        .field("gminaId", String(gminaId)),
     );
 
     expect(res.status).toBe(400);
@@ -87,6 +127,7 @@ describe("POST /zgloszenia", () => {
       .field("description", "Powinno zostać odrzucone")
       .field("lat", "48.5")
       .field("lng", "18.5")
+      .field("gminaId", String(gminaId))
       .field("email", `bezfoto${TEST_DOMAIN}`);
 
     expect(res.status).toBe(400);
@@ -100,6 +141,7 @@ describe("POST /zgloszenia", () => {
         .field("description", "Tytuł za krótki")
         .field("lat", "48.6")
         .field("lng", "18.6")
+        .field("gminaId", String(gminaId))
         .field("email", `walid${TEST_DOMAIN}`),
     );
 
@@ -117,7 +159,8 @@ describe("POST /zgloszenia", () => {
         .field("title", "Dziura zalogowany")
         .field("description", "Przypięte do konta")
         .field("lat", "51.0")
-        .field("lng", "17.0"),
+        .field("lng", "17.0")
+        .field("gminaId", String(gminaId)),
     );
 
     expect(res.status).toBe(201);
@@ -152,6 +195,7 @@ describe("POST /zgloszenia", () => {
         .field("description", "Oryginalne zgłoszenie usterki")
         .field("lat", String(lat))
         .field("lng", String(lng))
+        .field("gminaId", String(gminaId))
         .field("email", `dup1${TEST_DOMAIN}`),
     );
     expect(first.status).toBe(201);
@@ -165,6 +209,7 @@ describe("POST /zgloszenia", () => {
         .field("description", "Ta sama usterka zgłoszona ponownie")
         .field("lat", String(nearLat))
         .field("lng", String(lng))
+        .field("gminaId", String(gminaId))
         .field("email", `dup2${TEST_DOMAIN}`),
     );
     expect(dup.status).toBe(409);
@@ -180,6 +225,7 @@ describe("POST /zgloszenia", () => {
         .field("description", "Dodaję pomimo istniejącego zgłoszenia")
         .field("lat", String(nearLat))
         .field("lng", String(lng))
+        .field("gminaId", String(gminaId))
         .field("email", `dup3${TEST_DOMAIN}`)
         .field("force", "true"),
     );
@@ -194,6 +240,7 @@ describe("POST /zgloszenia", () => {
         .field("description", "Zupełnie inna lokalizacja")
         .field("lat", "53.13")
         .field("lng", "23.16")
+        .field("gminaId", String(gminaId))
         .field("email", `far${TEST_DOMAIN}`),
     );
     expect(res.status).toBe(201);
@@ -218,6 +265,7 @@ const createTestZgloszenie = (
       description: "Rekord testowy dla operacji CRUD",
       lat: 41.1,
       lng: 11.1,
+      gminaId,
       ...overrides,
     },
   });
@@ -225,7 +273,7 @@ const createTestZgloszenie = (
 describe("GET /zgloszenia", () => {
   let token: string;
   beforeAll(async () => {
-    token = await registerAndToken(`list${TEST_DOMAIN}`);
+    token = await makeUrzednikToken(`list${TEST_DOMAIN}`);
   });
 
   it("bez tokena zwraca 401", async () => {
@@ -249,7 +297,7 @@ describe("GET /zgloszenia", () => {
 describe("GET /zgloszenia/:id", () => {
   let token: string;
   beforeAll(async () => {
-    token = await registerAndToken(`getone${TEST_DOMAIN}`);
+    token = await makeUrzednikToken(`getone${TEST_DOMAIN}`);
   });
 
   it("bez tokena zwraca 401", async () => {
@@ -287,7 +335,7 @@ describe("GET /zgloszenia/:id", () => {
 describe("PATCH /zgloszenia/:id", () => {
   let token: string;
   beforeAll(async () => {
-    token = await registerAndToken(`patch${TEST_DOMAIN}`);
+    token = await makeUrzednikToken(`patch${TEST_DOMAIN}`);
   });
 
   it("bez tokena zwraca 401", async () => {
@@ -319,6 +367,7 @@ describe("PATCH /zgloszenia/:id", () => {
         description: "Rekord z ustawionym terminem",
         lat: 42.2,
         lng: 12.2,
+        gminaId,
         deadline,
       },
     });
@@ -354,7 +403,7 @@ describe("PATCH /zgloszenia/:id", () => {
 describe("DELETE /zgloszenia/:id", () => {
   let token: string;
   beforeAll(async () => {
-    token = await registerAndToken(`delete${TEST_DOMAIN}`);
+    token = await makeSuperadminToken(`delete${TEST_DOMAIN}`);
   });
 
   it("bez tokena zwraca 401", async () => {

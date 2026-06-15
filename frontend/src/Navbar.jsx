@@ -63,6 +63,23 @@ function Navbar() {
 
         {loggedIn ? (
           <>
+            {user?.isSuperadmin && location.pathname !== "/admin" && (
+              <button
+                onClick={() => navigate("/admin")}
+                style={navBtn("#7c3aed")}
+              >
+                Panel
+              </button>
+            )}
+            {(user?.role === "URZEDNIK" || user?.isSuperadmin) &&
+              location.pathname !== "/urzednik" && (
+                <button
+                  onClick={() => navigate("/urzednik")}
+                  style={navBtn("#0891b2")}
+                >
+                  Panel urzędnika
+                </button>
+              )}
             <span style={{ color: "#cbd5e1", fontSize: "14px" }}>
               {user?.email ?? "Zalogowano"}
             </span>

@@ -8,6 +8,9 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: "autoUpdate",
+      // Rejestrację SW wykonujemy ręcznie w main.jsx — tylko na urządzeniach
+      // mobilnych. Na PC działa zwykła strona (bez service workera/cache).
+      injectRegister: false,
       // SW działa tylko w buildzie produkcyjnym (nie zaśmieca dev cache'em).
       includeAssets: ["pwa-icon.svg"],
       manifest: {
