@@ -1,4 +1,4 @@
-name: Frontend Lint
+name: "[10] Frontend Lint"
 
 on:
   push:

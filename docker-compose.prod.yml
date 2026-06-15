@@ -4,15 +4,15 @@ services:
     container_name: roadwatch_postgres
     restart: unless-stopped
     environment:
-      POSTGRES_DB: roadwatch
-      POSTGRES_USER: roadwatch
-      POSTGRES_PASSWORD: roadwatch
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
     ports:
-      - "5432:5432"
+      - "${POSTGRES_PORT}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U roadwatch -d roadwatch"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -23,15 +23,15 @@ services:
     container_name: roadwatch_backend
     restart: unless-stopped
     environment:
-      UPLOAD_DIR: /app/upload
-      DATABASE_URL: "postgresql://roadwatch:roadwatch@postgres:5432/roadwatch?schema=public"
-      PORT: "8000"
-      LOG_LEVEL: "debug"
-      ALLOWED_ORIGINS: "http://149.156.194.192:8102"
-      JWT_SECRET: "CHANGE"
-      PRODUCTION: "true"
+      UPLOAD_DIR: ${UPLOAD_DIR}
+      DATABASE_URL: ${DATABASE_URL}
+      PORT: ${PORT}
+      LOG_LEVEL: ${LOG_LEVEL}
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS}
+      JWT_SECRET: ${JWT_SECRET}
+      PRODUCTION: ${PRODUCTION}
     ports:
-      - "8103:8000"
+      - "${BACKEND_PORT}:8000"
     volumes:
       - backend_uploads:/app/upload
     depends_on:
@@ -44,7 +44,7 @@ services:
     container_name: roadwatch_frontend
     restart: unless-stopped
     ports:
-      - "8102:80"
+      - "${FRONTEND_PORT}:80"
 
 volumes:
   postgres_data:
