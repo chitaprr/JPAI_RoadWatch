@@ -1,4 +1,8 @@
+<<<<<<< HEAD
 name: "[0] Deploy"
+=======
+name: Build & Push Images
+>>>>>>> 71a160889dd0bf1cef4b492e2a219a767a7b89a5
 
 # Uruchamiany ręcznie z zakładki Actions.
 on:
@@ -8,6 +12,7 @@ on:
         description: "URL backendu wypiekany w bundle frontendu (VITE_API_URL)"
         required: true
         default: "http://149.156.194.192:8103/"
+<<<<<<< HEAD
       release_tag:
         description: "Wersja/tag dla obrazu i GitHub Release (np. v1.2.0). Pusty = bez release."
         required: false
@@ -19,6 +24,12 @@ on:
           - release
           - prerelease
         default: prerelease
+=======
+      tag:
+        description: "Dodatkowy tag obrazu (oprócz latest i SHA commita)"
+        required: false
+        default: ""
+>>>>>>> 71a160889dd0bf1cef4b492e2a219a767a7b89a5
 
 env:
   REGISTRY: ghcr.io
@@ -61,7 +72,11 @@ jobs:
           tags: |
             type=raw,value=latest
             type=sha,format=long
+<<<<<<< HEAD
             type=raw,value=${{ inputs.release_tag }},enable=${{ inputs.release_tag != '' }}
+=======
+            type=raw,value=${{ inputs.tag }},enable=${{ inputs.tag != '' }}
+>>>>>>> 71a160889dd0bf1cef4b492e2a219a767a7b89a5
 
       - name: Build & push
         uses: docker/build-push-action@263435318d21b8e681c14492fe198d362a7d2c83 # v6.18.0
@@ -75,6 +90,7 @@ jobs:
             VITE_API_URL=${{ inputs.vite_api_url }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+<<<<<<< HEAD
 
   release:
     name: Create tag & release
@@ -113,3 +129,5 @@ jobs:
           docker compose pull
           docker compose up -d --remove-orphans
           docker image prune -f
+=======
+>>>>>>> 71a160889dd0bf1cef4b492e2a219a767a7b89a5
