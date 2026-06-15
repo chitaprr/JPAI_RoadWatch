@@ -21,7 +21,8 @@ COPY prisma.config.ts ./prisma.config.ts
 COPY entrypoint.sh ./entrypoint.sh
 
 ENV NODE_ENV=production
-RUN npm ci && npx prisma generate && chmod +x entrypoint.sh
+# Usuń ewentualne CRLF (Windows) z entrypointa, inaczej shebang #!/bin/sh\r psuje uruchomienie
+RUN sed -i 's/\r$//' entrypoint.sh && npm ci && npx prisma generate && chmod +x entrypoint.sh
 
 EXPOSE 8000
 

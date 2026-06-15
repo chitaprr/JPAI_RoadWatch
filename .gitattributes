@@ -1,0 +1,4 @@
+# Wymuś końce linii LF dla skryptów shell — inaczej Windows (CRLF)
+# psuje shebang i kontener zgłasza "entrypoint.sh not found".
+*.sh text eol=lf
+entrypoint.sh text eol=lf
