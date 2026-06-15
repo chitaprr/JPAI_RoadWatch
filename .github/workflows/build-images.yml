@@ -1,4 +1,4 @@
-name: Build & Push Images
+name: "[0] Deploy"
 
 # Uruchamiany ręcznie z zakładki Actions.
 on:
@@ -8,10 +8,17 @@ on:
         description: "URL backendu wypiekany w bundle frontendu (VITE_API_URL)"
         required: true
         default: "http://149.156.194.192:8103/"
-      tag:
-        description: "Dodatkowy tag obrazu (oprócz latest i SHA commita)"
+      release_tag:
+        description: "Wersja/tag dla obrazu i GitHub Release (np. v1.2.0). Pusty = bez release."
         required: false
         default: ""
+      release_type:
+        description: "Typ release (używany tylko gdy podano release_tag)"
+        type: choice
+        options:
+          - release
+          - prerelease
+        default: prerelease
 
 env:
   REGISTRY: ghcr.io
@@ -54,7 +61,7 @@ jobs:
           tags: |
             type=raw,value=latest
             type=sha,format=long
-            type=raw,value=${{ inputs.tag }},enable=${{ inputs.tag != '' }}
+            type=raw,value=${{ inputs.release_tag }},enable=${{ inputs.release_tag != '' }}
 
       - name: Build & push
         uses: docker/build-push-action@263435318d21b8e681c14492fe198d362a7d2c83 # v6.18.0
@@ -68,3 +75,41 @@ jobs:
             VITE_API_URL=${{ inputs.vite_api_url }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+  release:
+    name: Create tag & release
+    needs: build
+    if: ${{ inputs.release_tag != '' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        # gh tworzy tag git automatycznie na bieżącym commicie, jeśli jeszcze nie istnieje
+        run: |
+          gh release create "${{ inputs.release_tag }}" \
+            --target "${{ github.sha }}" \
+            --title "${{ inputs.release_tag }}" \
+            --generate-notes \
+            ${{ inputs.release_type == 'prerelease' && '--prerelease' || '--latest' }}
+
+  deploy:
+    name: Deploy on VM
+    needs: build
+    # Self-hosted runner działa na VM za VPN — GitHub zleca mu joba, nie ma potrzeby połączenia przychodzącego
+    runs-on: self-hosted
+    # Nie pozwól na nakładające się deploye
+    concurrency:
+      group: deploy-vm
+      cancel-in-progress: false
+    steps:
+      - name: Pull & restart containers
+        working-directory: /home/projekt
+        run: |
+          docker compose pull
+          docker compose up -d --remove-orphans
+          docker image prune -f
