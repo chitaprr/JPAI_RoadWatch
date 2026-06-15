@@ -1,0 +1,70 @@
+name: Build & Push Images
+
+# Uruchamiany ręcznie z zakładki Actions.
+on:
+  workflow_dispatch:
+    inputs:
+      vite_api_url:
+        description: "URL backendu wypiekany w bundle frontendu (VITE_API_URL)"
+        required: true
+        default: "http://149.156.194.192:8103/"
+      tag:
+        description: "Dodatkowy tag obrazu (oprócz latest i SHA commita)"
+        required: false
+        default: ""
+
+env:
+  REGISTRY: ghcr.io
+  # GHCR wymaga małych liter w nazwie obrazu
+  IMAGE_PREFIX: ghcr.io/${{ github.repository_owner }}/jpai_roadwatch
+
+jobs:
+  build:
+    name: Build & push ${{ matrix.service }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      matrix:
+        include:
+          - service: backend
+            context: ./backend
+          - service: frontend
+            context: ./frontend
+
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@e468171a9de216ec08956ac3ada2f0791b6bd435 # v3.11.1
+
+      - name: Log in to GHCR
+        uses: docker/login-action@74a5d142397b4f367a81961eba4e8cd7edddf772 # v3.4.0
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Generate tags
+        id: meta
+        uses: docker/metadata-action@902fa8ec7d6ecbf8d84d538b9b233a880e428804 # v5.7.0
+        with:
+          images: ${{ env.IMAGE_PREFIX }}-${{ matrix.service }}
+          tags: |
+            type=raw,value=latest
+            type=sha,format=long
+            type=raw,value=${{ inputs.tag }},enable=${{ inputs.tag != '' }}
+
+      - name: Build & push
+        uses: docker/build-push-action@263435318d21b8e681c14492fe198d362a7d2c83 # v6.18.0
+        with:
+          context: ${{ matrix.context }}
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          # build-arg ignorowany przez backend (nie ma takiego ARG) — Docker po prostu go pomija
+          build-args: |
+            VITE_API_URL=${{ inputs.vite_api_url }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

@@ -1,0 +1,51 @@
+services:
+  postgres:
+    image: postgres:18-alpine
+    container_name: roadwatch_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: roadwatch
+      POSTGRES_USER: roadwatch
+      POSTGRES_PASSWORD: roadwatch
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U roadwatch -d roadwatch"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    image: ghcr.io/chitaprr/jpai_roadwatch-backend:latest
+    pull_policy: always
+    container_name: roadwatch_backend
+    restart: unless-stopped
+    environment:
+      UPLOAD_DIR: /app/upload
+      DATABASE_URL: "postgresql://roadwatch:roadwatch@postgres:5432/roadwatch?schema=public"
+      PORT: "8000"
+      LOG_LEVEL: "debug"
+      ALLOWED_ORIGINS: "http://149.156.194.192:8102"
+      JWT_SECRET: "CHANGE"
+      PRODUCTION: "true"
+    ports:
+      - "8103:8000"
+    volumes:
+      - backend_uploads:/app/upload
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  frontend:
+    image: ghcr.io/chitaprr/jpai_roadwatch-frontend:latest
+    pull_policy: always
+    container_name: roadwatch_frontend
+    restart: unless-stopped
+    ports:
+      - "8102:80"
+
+volumes:
+  postgres_data:
+  backend_uploads:
