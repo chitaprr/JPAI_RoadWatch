@@ -18,6 +18,12 @@ export const saveAuth = (token, user) => {
   if (user) localStorage.setItem("user", JSON.stringify(user));
 };
 
+// Aktualizacja samych danych użytkownika (bez zmiany tokena) — np. po
+// odświeżeniu z GET /users/me, gdy rola/gmina mogły się zmienić w bazie.
+export const setUser = (user) => {
+  if (user) localStorage.setItem("user", JSON.stringify(user));
+};
+
 export const logout = () => {
   localStorage.removeItem("token");
   localStorage.removeItem("user");

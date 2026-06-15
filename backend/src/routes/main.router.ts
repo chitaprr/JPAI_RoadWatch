@@ -3,12 +3,16 @@ import { HelloWorldHandler } from "./main.controller";
 import userRouter from "./user/user.router";
 import authRouter from "./auth/auth.router";
 import zgloszenieRouter from "./zgloszenie/zgloszenie.router";
+import gminaRouter from "./gmina/gmina.router";
+import wykonawcaRouter from "./wykonawca/wykonawca.router";
 
 const router = Router();
 
 router.use("/users", userRouter);
 router.use("/auth", authRouter);
 router.use("/zgloszenia", zgloszenieRouter);
+router.use("/gminy", gminaRouter);
+router.use("/wykonawcy", wykonawcaRouter);
 
 router.get("/", HelloWorldHandler);
 

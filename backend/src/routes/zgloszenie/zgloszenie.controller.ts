@@ -8,6 +8,7 @@ import {
   CONFLICT,
   BAD_REQUEST,
   NOT_FOUND,
+  FORBIDDEN,
   SERVER_ERROR,
   MISSING_BODY_FIELDS,
 } from "../../utils/httpCodeResponses/messages";
@@ -23,6 +24,11 @@ export const createSchema = z.object({
   description: z.string().min(3, { message: "Opis musi mieć minimum 3 znaki" }),
   lat: z.coerce.number().min(-90).max(90),
   lng: z.coerce.number().min(-180).max(180),
+  // Gmina wybierana przez zgłaszającego (dropdown). Wymagana.
+  gminaId: z.coerce
+    .number({ message: "Wybór gminy jest wymagany" })
+    .int()
+    .positive(),
   // Wymagany dla gości; dla zalogowanych brany z tokena.
   email: z.email({ message: "Niepoprawny format adresu email" }).optional(),
   force: z
@@ -75,7 +81,7 @@ export const createZgloszenie = async (
       );
     }
 
-    const { title, description, lat, lng, force } = parsed.data;
+    const { title, description, lat, lng, gminaId, force } = parsed.data;
 
     // Zalogowany -> email z konta; gość -> email z body (wymagany).
     const email = req.user?.email ?? parsed.data.email;
@@ -110,6 +116,7 @@ export const createZgloszenie = async (
       description,
       lat,
       lng,
+      gminaId,
       filePaths: files.map((file) => `${UPLOAD_ROUTE_PREFIX}/${file.filename}`),
     });
 
@@ -129,12 +136,25 @@ const parseId = (raw: string | string[] | undefined): number | null => {
   return Number.isInteger(id) && id > 0 ? id : null;
 };
 
+// Urzędnik ma dostęp tylko do zgłoszeń ze swojej gminy; superadmin do wszystkich.
+// Zgłoszenia bez gminy (null) widzi wyłącznie superadmin.
+const canAccessGmina = (
+  user: AuthenticatedRequest["user"],
+  gminaId: number | null,
+): boolean =>
+  !!user &&
+  (user.isSuperadmin || (gminaId !== null && gminaId === user.urzednikGminaId));
+
 export const getZgloszenia = async (
-  _req: AuthenticatedRequest,
+  req: AuthenticatedRequest,
   res: Response,
 ) => {
   try {
-    const zgloszenia = await zgloszenieService.listZgloszenia();
+    // Superadmin widzi wszystko; urzędnik tylko swoją gminę.
+    const filter = req.user?.isSuperadmin
+      ? undefined
+      : { gminaId: req.user?.urzednikGminaId ?? -1 };
+    const zgloszenia = await zgloszenieService.listZgloszenia(filter);
     return SUCCESS(res, "Lista zgłoszeń", { zgloszenia });
   } catch {
     return SERVER_ERROR(
@@ -171,6 +191,9 @@ export const getZgloszenieById = async (
     const zgloszenie = await zgloszenieService.findZgloszenieById(id);
     if (!zgloszenie) return NOT_FOUND(res, "Nie znaleziono zgłoszenia.");
 
+    if (!canAccessGmina(req.user, zgloszenie.gminaId))
+      return FORBIDDEN(res, "Brak dostępu do zgłoszeń z tej gminy.");
+
     return SUCCESS(res, "Zgłoszenie", { zgloszenie });
   } catch {
     return SERVER_ERROR(
@@ -190,6 +213,12 @@ export const updateZgloszenie = async (
 
     const parsed = updateSchema.safeParse(req.body);
     if (!parsed.success) return MISSING_BODY_FIELDS(res, parsed.error.issues);
+
+    // Urzędnik może edytować tylko zgłoszenia ze swojej gminy.
+    const existing = await zgloszenieService.findZgloszenieById(id);
+    if (!existing) return NOT_FOUND(res, "Nie znaleziono zgłoszenia.");
+    if (!canAccessGmina(req.user, existing.gminaId))
+      return FORBIDDEN(res, "Brak dostępu do zgłoszeń z tej gminy.");
 
     // deadline: string ISO -> Date; null -> czyści; undefined -> bez zmiany.
     const { deadline, ...rest } = parsed.data;

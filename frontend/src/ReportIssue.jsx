@@ -51,6 +51,8 @@ function ReportIssue() {
   const [description, setDescription] = useState("");
   const [photos, setPhotos] = useState([]); // od 1 do 5 plików
   const [position, setPosition] = useState(null); // [lat, lng]
+  const [gminy, setGminy] = useState([]);
+  const [gminaId, setGminaId] = useState(""); // wybrana gmina (wymagana)
   // Zalogowany = jest token. Wtedy zgłoszenie idzie z tokenem (przypięte do
   // konta), a pole email jest ukryte (backend bierze email z konta).
   const [isLoggedIn, setIsLoggedIn] = useState(
@@ -71,6 +73,14 @@ function ReportIssue() {
     );
   }, []);
 
+  // Lista gmin do wyboru — publiczna (działa też dla gościa).
+  useEffect(() => {
+    api
+      .get("/gminy", { skipAuth: true })
+      .then((res) => setGminy(res.data.gminy ?? []))
+      .catch(() => setGminy([]));
+  }, []);
+
   // 2. Co się dzieje po kliknięciu "Wyślij zgłoszenie".
   const handleSubmit = async (event) => {
     event.preventDefault();
@@ -87,6 +97,10 @@ function ReportIssue() {
       alert(`Możesz dołączyć maksymalnie ${MAX_PHOTOS} zdjęć.`);
       return;
     }
+    if (!gminaId) {
+      alert("Wybierz gminę, której dotyczy zgłoszenie.");
+      return;
+    }
 
     // Backend przyjmuje multipart/form-data; pliki w polu "zdjecia" (do 5).
     const formData = new FormData();
@@ -96,6 +110,7 @@ function ReportIssue() {
     if (!isLoggedIn) formData.append("email", email);
     formData.append("lat", position[0]);
     formData.append("lng", position[1]);
+    formData.append("gminaId", gminaId);
     photos.forEach((photo) => formData.append("zdjecia", photo));
 
     try {
@@ -176,6 +191,19 @@ function ReportIssue() {
             rows="5"
             required
           />
+
+          <select
+            value={gminaId}
+            onChange={(e) => setGminaId(e.target.value)}
+            required
+          >
+            <option value="">— Wybierz gminę —</option>
+            {gminy.map((g) => (
+              <option key={g.id} value={g.id}>
+                {g.name}
+              </option>
+            ))}
+          </select>
 
           <label style={{ fontSize: "14px", fontWeight: "bold" }}>
             Wskaż lokalizację usterki na mapie:

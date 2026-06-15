@@ -58,6 +58,7 @@ export const createZgloszenie = (data: {
   description: string;
   lat: number;
   lng: number;
+  gminaId: number;
   filePaths: string[];
 }) =>
   prisma.zgloszenie.create({
@@ -68,6 +69,7 @@ export const createZgloszenie = (data: {
       description: data.description,
       lat: data.lat,
       lng: data.lng,
+      gminaId: data.gminaId,
       zdjecia: {
         create: data.filePaths.map((filePath) => ({ filePath })),
       },
@@ -75,8 +77,11 @@ export const createZgloszenie = (data: {
     include: { zdjecia: true },
   });
 
-export const listZgloszenia = () =>
+// Bez filtra -> wszystkie (superadmin). Z gminaId -> tylko zgłoszenia danej gminy
+// (scoping urzędnika do jego gminy).
+export const listZgloszenia = (filter?: { gminaId?: number }) =>
   prisma.zgloszenie.findMany({
+    where: filter?.gminaId !== undefined ? { gminaId: filter.gminaId } : {},
     include: { zdjecia: true },
     orderBy: { createdAt: "desc" },
   });

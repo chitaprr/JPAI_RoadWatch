@@ -29,9 +29,10 @@ api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response && error.response.status === 403) {
-      console.log("remove token");
-      // Jeśli token wygasł lub jest niepoprawny - czyścimy dane i możemy przekierować na logowanie
+      // Token wygasł/niepoprawny — pełne wylogowanie (oba klucze), żeby nie
+      // zostawić niespójnego stanu: user w localStorage bez tokena.
       localStorage.removeItem("token");
+      localStorage.removeItem("user");
       window.location.href = "/";
     }
     return Promise.reject(error);

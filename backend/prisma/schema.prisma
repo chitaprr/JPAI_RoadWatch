@@ -7,11 +7,20 @@ datasource db {
   provider = "postgresql"
 }
 
+// Rola funkcjonalna konta. isSuperadmin jest ortogonalną, nadrzędną flagą
+// ("może wszystko") i nie jest częścią tego enuma.
+enum Rola {
+  MIESZKANIEC
+  URZEDNIK
+  WYKONAWCA
+}
+
 model User {
   id           Int      @id @default(autoincrement())
   email        String   @unique
   name         String
   password     String
+  role         Rola     @default(MIESZKANIEC) @map("role")
   isSuperadmin Boolean  @default(false)
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
@@ -22,6 +31,10 @@ model User {
   adminGmina      Gmina? @relation("GminaAdmini", fields: [adminGminaId], references: [id])
   adminGminaId    Int?   @map("admin_gmina_id")
 
+  // Konto wykonawcy jest powiązane z firmą (encją Wykonawca). Rola WYKONAWCA.
+  wykonawca   Wykonawca? @relation(fields: [wykonawcaId], references: [id])
+  wykonawcaId Int?       @map("wykonawca_id")
+
   reportedZgloszenia Zgloszenie[] @relation("ReportedZgloszenia")
   assignedZgloszenia Zgloszenie[] @relation("AssignedZgloszenia")
 }
@@ -30,9 +43,10 @@ model Gmina {
   id   Int    @id @default(autoincrement())
   name String @db.VarChar
 
-  urzednicy User[]      @relation("GminaUrzednicy")
-  admini    User[]      @relation("GminaAdmini")
-  wykonawcy Wykonawca[]
+  urzednicy  User[]       @relation("GminaUrzednicy")
+  admini     User[]       @relation("GminaAdmini")
+  wykonawcy  Wykonawca[]
+  zgloszenia Zgloszenie[]
 
   @@map("Gminy")
 }
@@ -46,6 +60,7 @@ model Wykonawca {
   gmina      Gmina        @relation(fields: [gminaId], references: [id])
   zgloszenia Zgloszenie[]
   naprawy    Naprawa[]
+  users      User[]
 
   @@map("Wykonawcy")
 }
@@ -56,6 +71,9 @@ model Zgloszenie {
   email        String    @db.VarChar
   urzednikId   Int?      @map("urzednik_id")
   contractorId Int?      @map("contractor_id")
+  // Gmina wybierana przez zgłaszającego. Nullable dla starych rekordów; nowe
+  // zgłoszenia zawsze ją mają (wymagane w walidacji Zod).
+  gminaId      Int?      @map("gmina_id")
   title        String    @db.VarChar
   description  String    @db.Text
   lat          Decimal   @db.Decimal(10, 8)
@@ -69,6 +87,7 @@ model Zgloszenie {
   user      User?      @relation("ReportedZgloszenia", fields: [userId], references: [id])
   urzednik  User?      @relation("AssignedZgloszenia", fields: [urzednikId], references: [id])
   wykonawca Wykonawca? @relation(fields: [contractorId], references: [id])
+  gmina     Gmina?     @relation(fields: [gminaId], references: [id])
 
   zdjecia Zdjecie[]
   naprawy Naprawa[]

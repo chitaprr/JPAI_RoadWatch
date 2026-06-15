@@ -5,6 +5,7 @@ import {
   createSchema,
   updateSchema,
 } from "../routes/zgloszenie/zgloszenie.controller";
+import { updateUserSchema } from "../routes/user/user.controller";
 
 /**
  * Specyfikacja OpenAPI generowana z tych samych schematów Zod, które walidują
@@ -55,7 +56,10 @@ const userPublic = z
     id: z.number(),
     email: z.email(),
     name: z.string(),
+    role: z.enum(["MIESZKANIEC", "URZEDNIK", "WYKONAWCA"]),
     isSuperadmin: z.boolean(),
+    urzednikGminaId: z.number().nullable().optional(),
+    wykonawcaId: z.number().nullable().optional(),
   })
   .meta({ id: "UserPublic" });
 
@@ -63,6 +67,19 @@ const authPayload = {
   token: z.string(),
   user: userPublic,
 };
+
+const gmina = z
+  .object({ id: z.number(), name: z.string() })
+  .meta({ id: "Gmina" });
+
+const wykonawca = z
+  .object({
+    id: z.number(),
+    name: z.string(),
+    nip: z.string(),
+    gminaId: z.number(),
+  })
+  .meta({ id: "Wykonawca" });
 
 const zgloszenieDuplicate = z
   .object({
@@ -90,6 +107,7 @@ const zgloszenie = z
     email: z.email(),
     urzednikId: z.number().nullable(),
     contractorId: z.number().nullable(),
+    gminaId: z.number().nullable(),
     title: z.string(),
     description: z.string(),
     lat: z.string(),
@@ -203,7 +221,8 @@ export const openApiDocument = createDocument({
     "/users": {
       get: {
         tags: ["Users"],
-        summary: "Lista użytkowników",
+        summary: "Lista użytkowników (tylko superadmin)",
+        security: [{ bearerAuth: [] }],
         responses: {
           "200": {
             description: "Lista użytkowników",
@@ -213,6 +232,8 @@ export const openApiDocument = createDocument({
               },
             },
           },
+          "401": jsonError("Brak tokena"),
+          "403": jsonError("Wymagane uprawnienia superadmina"),
         },
       },
     },
@@ -233,6 +254,113 @@ export const openApiDocument = createDocument({
           "401": jsonError("Brak tokena"),
           "403": jsonError("Token niepoprawny lub wygasł"),
           "404": jsonError("Użytkownik nie znaleziony"),
+        },
+      },
+    },
+    "/users/{id}": {
+      get: {
+        tags: ["Users"],
+        summary: "Pobranie użytkownika po ID (tylko superadmin)",
+        security: [{ bearerAuth: [] }],
+        requestParams: idParam,
+        responses: {
+          "200": {
+            description: "Użytkownik",
+            content: {
+              "application/json": {
+                schema: successEnvelope({ user: userPublic }),
+              },
+            },
+          },
+          "401": jsonError("Brak tokena"),
+          "403": jsonError("Wymagane uprawnienia superadmina"),
+          "404": jsonError("Użytkownik nie znaleziony"),
+        },
+      },
+      patch: {
+        tags: ["Users"],
+        summary:
+          "Aktualizacja użytkownika (rola, gmina, wykonawca) — superadmin",
+        security: [{ bearerAuth: [] }],
+        requestParams: idParam,
+        requestBody: {
+          content: { "application/json": { schema: updateUserSchema } },
+        },
+        responses: {
+          "200": {
+            description: "Użytkownik zaktualizowany",
+            content: {
+              "application/json": {
+                schema: successEnvelope({ user: userPublic }),
+              },
+            },
+          },
+          "400": jsonError("Błąd walidacji", validationErrorEnvelope),
+          "401": jsonError("Brak tokena"),
+          "403": jsonError("Wymagane uprawnienia superadmina"),
+          "404": jsonError("Użytkownik nie znaleziony"),
+        },
+      },
+      delete: {
+        tags: ["Users"],
+        summary: "Usunięcie użytkownika (tylko superadmin)",
+        security: [{ bearerAuth: [] }],
+        requestParams: idParam,
+        responses: {
+          "200": {
+            description: "Użytkownik usunięty",
+            content: {
+              "application/json": {
+                schema: z.object({
+                  success: z.literal(true),
+                  msg: z.string(),
+                }),
+              },
+            },
+          },
+          "400": jsonError("Niepoprawne id / próba usunięcia siebie"),
+          "401": jsonError("Brak tokena"),
+          "403": jsonError("Wymagane uprawnienia superadmina"),
+          "404": jsonError("Użytkownik nie znaleziony"),
+        },
+      },
+    },
+    "/gminy": {
+      get: {
+        tags: ["Gminy"],
+        summary: "Lista gmin (publiczna)",
+        description:
+          "Otwarte bez logowania — używane w formularzu zgłoszenia oraz w panelu.",
+        responses: {
+          "200": {
+            description: "Lista gmin",
+            content: {
+              "application/json": {
+                schema: successEnvelope({ gminy: z.array(gmina) }),
+              },
+            },
+          },
+          "500": jsonError("Błąd serwera"),
+        },
+      },
+    },
+    "/wykonawcy": {
+      get: {
+        tags: ["Wykonawcy"],
+        summary: "Lista wykonawców (urzędnik lub superadmin)",
+        security: [{ bearerAuth: [] }],
+        responses: {
+          "200": {
+            description: "Lista wykonawców",
+            content: {
+              "application/json": {
+                schema: successEnvelope({ wykonawcy: z.array(wykonawca) }),
+              },
+            },
+          },
+          "401": jsonError("Brak tokena"),
+          "403": jsonError("Wymagane uprawnienia urzędnika lub superadmina"),
+          "500": jsonError("Błąd serwera"),
         },
       },
     },

@@ -8,3 +8,28 @@ createRoot(document.getElementById("root")).render(
     <App />
   </StrictMode>,
 );
+
+// PWA tylko na urządzeniach mobilnych. Na PC chcemy zwykłą stronę — bez
+// service workera i cache'owania (które potrafi serwować stary bundle).
+const isMobile =
+  /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(
+    navigator.userAgent,
+  ) ||
+  // iPadOS podaje się za "Macintosh" — rozpoznajemy po dotyku.
+  (navigator.maxTouchPoints > 1 && /Macintosh/.test(navigator.userAgent));
+
+if (isMobile) {
+  // Rejestracja service workera (PWA, instalowalność, cache kafelków).
+  import("virtual:pwa-register").then(({ registerSW }) =>
+    registerSW({ immediate: true }),
+  );
+} else if ("serviceWorker" in navigator) {
+  // PC: wyrejestruj ewentualnego SW z wcześniejszej wizyty i wyczyść cache,
+  // żeby nie serwował przestarzałej wersji aplikacji.
+  navigator.serviceWorker
+    .getRegistrations()
+    .then((regs) => regs.forEach((r) => r.unregister()));
+  if (window.caches) {
+    caches.keys().then((keys) => keys.forEach((k) => caches.delete(k)));
+  }
+}

@@ -1,7 +1,9 @@
 import { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
 import config from "../../config";
+import prisma from "../utils/prisma";
 import { UNAUTHORIZED, FORBIDDEN } from "../utils/httpCodeResponses/messages";
+import type { Rola } from "../generated/prisma/client";
 
 const JWT_SECRET = config.JWT_SECRET!;
 
@@ -10,14 +12,56 @@ export interface AuthenticatedRequest extends Request {
     userId: number;
     email: string;
     isSuperadmin: boolean;
+    role: Rola;
+    wykonawcaId: number | null;
+    urzednikGminaId: number | null;
   };
 }
 
-export const authenticateJWT = (
+// Token niesie wyłącznie tożsamość (userId). Rolę, gminę i flagi czytamy z bazy
+// przy każdym żądaniu — dzięki temu zmiana uprawnień działa od razu, bez
+// przelogowania (token nie przechowuje zdezaktualizowanych danych).
+const loadUser = (
+  userId: number,
+): Promise<AuthenticatedRequest["user"] | null> =>
+  prisma.user
+    .findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        email: true,
+        role: true,
+        isSuperadmin: true,
+        urzednikGminaId: true,
+        wykonawcaId: true,
+      },
+    })
+    .then((u) =>
+      u
+        ? {
+            userId: u.id,
+            email: u.email,
+            role: u.role,
+            isSuperadmin: u.isSuperadmin,
+            urzednikGminaId: u.urzednikGminaId,
+            wykonawcaId: u.wykonawcaId,
+          }
+        : null,
+    );
+
+const verifyToken = (token: string): { userId: number } | null => {
+  try {
+    return jwt.verify(token, JWT_SECRET) as { userId: number };
+  } catch {
+    return null;
+  }
+};
+
+export const authenticateJWT = async (
   req: AuthenticatedRequest,
   res: Response,
   next: NextFunction,
-): void => {
+): Promise<void> => {
   const authHeader = req.headers.authorization;
 
   if (!authHeader) {
@@ -25,17 +69,20 @@ export const authenticateJWT = (
     return;
   }
 
-  const token = authHeader.split(" ")[1];
+  const decoded = verifyToken(authHeader.split(" ")[1]);
+  if (!decoded) {
+    FORBIDDEN(res, "Token jest niepoprawny lub wygasł.");
+    return;
+  }
 
-  jwt.verify(token, JWT_SECRET, (err, decoded) => {
-    if (err) {
-      FORBIDDEN(res, "Token jest niepoprawny lub wygasł.");
-      return;
-    }
+  const user = await loadUser(decoded.userId);
+  if (!user) {
+    FORBIDDEN(res, "Konto powiązane z tokenem już nie istnieje.");
+    return;
+  }
 
-    req.user = decoded as AuthenticatedRequest["user"];
-    next();
-  });
+  req.user = user;
+  next();
 };
 
 /**
@@ -43,11 +90,11 @@ export const authenticateJWT = (
  * Brak nagłówka -> żądanie leci dalej jako gość (req.user pozostaje undefined).
  * Obecny, lecz niepoprawny token -> odrzucenie (403).
  */
-export const optionalAuth = (
+export const optionalAuth = async (
   req: AuthenticatedRequest,
   res: Response,
   next: NextFunction,
-): void => {
+): Promise<void> => {
   const authHeader = req.headers.authorization;
 
   if (!authHeader) {
@@ -55,15 +102,13 @@ export const optionalAuth = (
     return;
   }
 
-  const token = authHeader.split(" ")[1];
+  const decoded = verifyToken(authHeader.split(" ")[1]);
+  if (!decoded) {
+    FORBIDDEN(res, "Token jest niepoprawny lub wygasł.");
+    return;
+  }
 
-  jwt.verify(token, JWT_SECRET, (err, decoded) => {
-    if (err) {
-      FORBIDDEN(res, "Token jest niepoprawny lub wygasł.");
-      return;
-    }
-
-    req.user = decoded as AuthenticatedRequest["user"];
-    next();
-  });
+  // Konto mogło zostać usunięte — wtedy traktujemy żądanie jak gościa.
+  req.user = (await loadUser(decoded.userId)) ?? undefined;
+  next();
 };
