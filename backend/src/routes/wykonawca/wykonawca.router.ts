@@ -6,31 +6,36 @@ import {
   deleteWykonawca,
 } from "./wykonawca.controller";
 import { authenticateJWT } from "../../middlewares/authMiddleware";
-import { requireRole, requireSuperadmin } from "../../middlewares/authorize";
+import { requireRole } from "../../middlewares/authorize";
 import { Rola } from "../../generated/prisma/client";
 
 const wykonawcaRouter = Router();
 
-// Odczyt — urzędnik (przypisanie do zgłoszenia) i superadmin.
+// Odczyt — urzędnik (przypisanie do zgłoszenia), administrator gminy i superadmin.
 wykonawcaRouter.get(
   "/",
   authenticateJWT,
-  requireRole(Rola.URZEDNIK),
+  requireRole(Rola.URZEDNIK, Rola.ADMIN),
   getWykonawcy,
 );
 
-// Zarządzanie wykonawcami — tylko superadmin.
-wykonawcaRouter.post("/", authenticateJWT, requireSuperadmin, createWykonawca);
+// Zarządzanie wykonawcami — administrator gminy (scoping w kontrolerze) lub superadmin.
+wykonawcaRouter.post(
+  "/",
+  authenticateJWT,
+  requireRole(Rola.ADMIN),
+  createWykonawca,
+);
 wykonawcaRouter.patch(
   "/:id",
   authenticateJWT,
-  requireSuperadmin,
+  requireRole(Rola.ADMIN),
   updateWykonawca,
 );
 wykonawcaRouter.delete(
   "/:id",
   authenticateJWT,
-  requireSuperadmin,
+  requireRole(Rola.ADMIN),
   deleteWykonawca,
 );
 

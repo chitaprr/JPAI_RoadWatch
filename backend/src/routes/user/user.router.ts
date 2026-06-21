@@ -7,17 +7,20 @@ import {
   deleteUser,
 } from "./user.controller";
 import { authenticateJWT } from "../../middlewares/authMiddleware";
-import { requireSuperadmin } from "../../middlewares/authorize";
+import { requireRole, requireSuperadmin } from "../../middlewares/authorize";
+import { Rola } from "../../generated/prisma/client";
 
 const userRouter = Router();
 
 // Profil zalogowanego — musi być przed "/:id".
 userRouter.get("/me", authenticateJWT, getMe);
 
-// Zarządzanie użytkownikami — tylko superadmin.
-userRouter.get("/", authenticateJWT, requireSuperadmin, getUsers);
+// Lista i edycja — administrator gminy (scoping w kontrolerze) lub superadmin.
+userRouter.get("/", authenticateJWT, requireRole(Rola.ADMIN), getUsers);
+userRouter.patch("/:id", authenticateJWT, requireRole(Rola.ADMIN), updateUser);
+
+// Podgląd pojedynczego konta i usuwanie — tylko superadmin.
 userRouter.get("/:id", authenticateJWT, requireSuperadmin, getUserById);
-userRouter.patch("/:id", authenticateJWT, requireSuperadmin, updateUser);
 userRouter.delete("/:id", authenticateJWT, requireSuperadmin, deleteUser);
 
 export default userRouter;

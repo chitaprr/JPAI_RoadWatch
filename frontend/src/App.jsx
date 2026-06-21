@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import api from "./services/api";
 import { getToken, setUser } from "./services/auth";
+import { ensurePushSubscribed } from "./services/push";
 import Map from "./Map";
 import Login from "./Login";
 import Register from "./Register";
@@ -13,6 +14,8 @@ import RequireUrzednik from "./RequireUrzednik";
 import UrzednikPanel from "./urzednik/UrzednikPanel";
 import RequireWykonawca from "./RequireWykonawca";
 import WykonawcaPanel from "./wykonawca/WykonawcaPanel";
+import RequireAdmin from "./RequireAdmin";
+import GminaAdminLayout from "./gminaadmin/GminaAdminLayout";
 
 function App() {
   // Odświeżenie danych zalogowanego użytkownika z bazy — rola/gmina mogły się
@@ -28,6 +31,8 @@ function App() {
         setTick((t) => t + 1);
       })
       .catch(() => {});
+    // Utrzymanie subskrypcji push, jeśli użytkownik wcześniej zezwolił.
+    ensurePushSubscribed();
   }, []);
 
   return (
@@ -46,6 +51,15 @@ function App() {
             <RequireSuperadmin>
               <AdminLayout />
             </RequireSuperadmin>
+          }
+        />
+        {/* Panel administratora gminy — rola ADMIN (lub superadmin) */}
+        <Route
+          path="/gmina"
+          element={
+            <RequireAdmin>
+              <GminaAdminLayout />
+            </RequireAdmin>
           }
         />
         {/* Panel urzędnika — rola URZEDNIK (lub superadmin) */}

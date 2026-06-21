@@ -14,8 +14,11 @@ import {
   MISSING_QUERY_PARAMS,
 } from "../../utils/httpCodeResponses/messages";
 import { AuthenticatedRequest } from "../../middlewares/authMiddleware";
+import { Rola } from "../../generated/prisma/client";
 import { UPLOAD_DIR, UPLOAD_ROUTE_PREFIX } from "../../middlewares/upload";
 import * as zgloszenieService from "./zgloszenie.service";
+import type { AuditEntry } from "./zgloszenie.service";
+import * as pushService from "../push/push.service";
 
 const DUPLICATE_RADIUS_M = 50;
 
@@ -58,6 +61,17 @@ export const lookupSchema = z.object({
 // Zmiana statusu przez wykonawcę (PATCH /zgloszenia/:id/status).
 export const statusSchema = z.object({
   status: z.string().min(1, { message: "Status jest wymagany" }),
+});
+
+// Treść komentarza/notatki do zgłoszenia.
+export const komentarzSchema = z.object({
+  content: z.string().min(1, { message: "Treść komentarza jest wymagana" }),
+});
+
+// Zakres dat dla statystyk (opcjonalny).
+export const statystykiQuerySchema = z.object({
+  from: z.iso.date().optional(),
+  to: z.iso.date().optional(),
 });
 
 // Prisma rzuca P2025, gdy rekord do update/delete nie istnieje.
@@ -132,6 +146,23 @@ export const createZgloszenie = async (
       filePaths: files.map((file) => `${UPLOAD_ROUTE_PREFIX}/${file.filename}`),
     });
 
+    // Wpis początkowy w historii zmian.
+    await zgloszenieService.addHistoria([
+      {
+        zgloszenieId: zgloszenie.id,
+        userId: req.user?.userId ?? null,
+        userName: email,
+        field: "utworzenie",
+        oldValue: null,
+        newValue: zgloszenie.status,
+      },
+    ]);
+
+    // Powiadom urzędników gminy o nowym zgłoszeniu (best-effort).
+    void pushService
+      .notifyNewReport(gminaId, zgloszenie.id, title)
+      .catch(() => {});
+
     return CREATED(res, "Zgłoszenie zostało utworzone.", { zgloszenie });
   } catch {
     cleanupFiles(files);
@@ -156,6 +187,76 @@ const canAccessGmina = (
 ): boolean =>
   !!user &&
   (user.isSuperadmin || (gminaId !== null && gminaId === user.urzednikGminaId));
+
+// Dostęp obsługi do zgłoszenia (komentarze, historia): superadmin — wszystko;
+// urzędnik/administrator — swoja gmina; wykonawca — tylko przypisane zlecenia.
+const canStaffAccess = (
+  user: AuthenticatedRequest["user"],
+  zgloszenie: { gminaId: number | null; contractorId: number | null },
+): boolean => {
+  if (!user) return false;
+  if (user.isSuperadmin) return true;
+  if (user.role === Rola.URZEDNIK)
+    return (
+      zgloszenie.gminaId !== null && zgloszenie.gminaId === user.urzednikGminaId
+    );
+  if (user.role === Rola.ADMIN)
+    return (
+      zgloszenie.gminaId !== null && zgloszenie.gminaId === user.adminGminaId
+    );
+  if (user.role === Rola.WYKONAWCA)
+    return (
+      zgloszenie.contractorId !== null &&
+      zgloszenie.contractorId === user.wykonawcaId
+    );
+  return false;
+};
+
+// Buduje wpisy audytu na podstawie różnicy pól triażu (tylko zmienione).
+const buildAuditEntries = (
+  zgloszenieId: number,
+  user: AuthenticatedRequest["user"],
+  before: {
+    status: string;
+    priority: number;
+    contractorId: number | null;
+    urzednikId: number | null;
+    deadline: Date | null;
+  },
+  after: {
+    status?: string;
+    priority?: number;
+    contractorId?: number | null;
+    urzednikId?: number | null;
+    deadline?: Date | null;
+  },
+): AuditEntry[] => {
+  const userName = user?.email ?? "system";
+  const userId = user?.userId ?? null;
+  const entries: AuditEntry[] = [];
+
+  const str = (v: unknown): string | null =>
+    v === null || v === undefined ? null : String(v);
+  const dateStr = (v: Date | null): string | null =>
+    v ? v.toISOString().slice(0, 10) : null;
+
+  const track = (field: string, oldV: string | null, newV: string | null) => {
+    if (oldV !== newV)
+      entries.push({ zgloszenieId, userId, userName, field, oldValue: oldV, newValue: newV });
+  };
+
+  if (after.status !== undefined) track("status", before.status, after.status);
+  if (after.priority !== undefined)
+    track("priorytet", str(before.priority), str(after.priority));
+  if (after.contractorId !== undefined)
+    track("wykonawca", str(before.contractorId), str(after.contractorId));
+  if (after.urzednikId !== undefined)
+    track("urzędnik", str(before.urzednikId), str(after.urzednikId));
+  if (after.deadline !== undefined)
+    track("termin", dateStr(before.deadline), dateStr(after.deadline));
+
+  return entries;
+};
 
 export const getZgloszenia = async (
   req: AuthenticatedRequest,
@@ -232,6 +333,20 @@ export const updateStatusByContractor = async (
     const zgloszenie = await zgloszenieService.updateZgloszenie(id, {
       status: parsed.data.status,
     });
+
+    await zgloszenieService.addHistoria(
+      buildAuditEntries(id, req.user, existing, {
+        status: parsed.data.status,
+      }),
+    );
+
+    // Powiadom właściciela zgłoszenia, jeśli status faktycznie się zmienił.
+    if (existing.status !== parsed.data.status) {
+      void pushService
+        .notifyStatusChange(existing.userId, id, parsed.data.status)
+        .catch(() => {});
+    }
+
     return SUCCESS(res, "Status zaktualizowany.", { zgloszenie });
   } catch {
     return SERVER_ERROR(
@@ -328,12 +443,31 @@ export const updateZgloszenie = async (
 
     // deadline: string ISO -> Date; null -> czyści; undefined -> bez zmiany.
     const { deadline, ...rest } = parsed.data;
+    const deadlineValue =
+      deadline === undefined
+        ? undefined
+        : deadline === null
+          ? null
+          : new Date(deadline);
     const zgloszenie = await zgloszenieService.updateZgloszenie(id, {
       ...rest,
-      ...(deadline === undefined
-        ? {}
-        : { deadline: deadline === null ? null : new Date(deadline) }),
+      ...(deadlineValue === undefined ? {} : { deadline: deadlineValue }),
     });
+
+    // Audyt: zapis tylko faktycznie zmienionych pól.
+    await zgloszenieService.addHistoria(
+      buildAuditEntries(id, req.user, existing, {
+        ...rest,
+        ...(deadlineValue === undefined ? {} : { deadline: deadlineValue }),
+      }),
+    );
+
+    // Powiadom właściciela o zmianie statusu (best-effort).
+    if (rest.status !== undefined && rest.status !== existing.status) {
+      void pushService
+        .notifyStatusChange(existing.userId, id, rest.status)
+        .catch(() => {});
+    }
 
     return SUCCESS(res, "Zgłoszenie zaktualizowane.", { zgloszenie });
   } catch (error) {
@@ -362,6 +496,157 @@ export const deleteZgloszenie = async (
     return SERVER_ERROR(
       res,
       "Wystąpił błąd serwera podczas usuwania zgłoszenia.",
+    );
+  }
+};
+
+// Komentarze/notatki wewnętrzne — odczyt dla obsługi mającej dostęp do zgłoszenia.
+export const getKomentarze = async (
+  req: AuthenticatedRequest,
+  res: Response,
+) => {
+  try {
+    const id = parseId(req.params.id);
+    if (id === null) return BAD_REQUEST(res, "Niepoprawne id zgłoszenia.");
+
+    const zgloszenie = await zgloszenieService.findZgloszenieById(id);
+    if (!zgloszenie) return NOT_FOUND(res, "Nie znaleziono zgłoszenia.");
+    if (!canStaffAccess(req.user, zgloszenie))
+      return FORBIDDEN(res, "Brak dostępu do tego zgłoszenia.");
+
+    const komentarze = await zgloszenieService.listKomentarze(id);
+    return SUCCESS(res, "Komentarze", { komentarze });
+  } catch {
+    return SERVER_ERROR(
+      res,
+      "Wystąpił błąd serwera podczas pobierania komentarzy.",
+    );
+  }
+};
+
+export const addKomentarz = async (
+  req: AuthenticatedRequest,
+  res: Response,
+) => {
+  try {
+    const id = parseId(req.params.id);
+    if (id === null) return BAD_REQUEST(res, "Niepoprawne id zgłoszenia.");
+
+    const parsed = komentarzSchema.safeParse(req.body);
+    if (!parsed.success) return MISSING_BODY_FIELDS(res, parsed.error.issues);
+
+    const zgloszenie = await zgloszenieService.findZgloszenieById(id);
+    if (!zgloszenie) return NOT_FOUND(res, "Nie znaleziono zgłoszenia.");
+    if (!canStaffAccess(req.user, zgloszenie))
+      return FORBIDDEN(res, "Brak dostępu do tego zgłoszenia.");
+
+    const komentarz = await zgloszenieService.createKomentarz({
+      zgloszenieId: id,
+      authorId: req.user!.userId,
+      authorName: req.user!.email,
+      content: parsed.data.content,
+    });
+    return CREATED(res, "Komentarz został dodany.", { komentarz });
+  } catch {
+    return SERVER_ERROR(
+      res,
+      "Wystąpił błąd serwera podczas dodawania komentarza.",
+    );
+  }
+};
+
+// Historia zmian (audit log) — odczyt dla obsługi mającej dostęp do zgłoszenia.
+export const getHistoria = async (
+  req: AuthenticatedRequest,
+  res: Response,
+) => {
+  try {
+    const id = parseId(req.params.id);
+    if (id === null) return BAD_REQUEST(res, "Niepoprawne id zgłoszenia.");
+
+    const zgloszenie = await zgloszenieService.findZgloszenieById(id);
+    if (!zgloszenie) return NOT_FOUND(res, "Nie znaleziono zgłoszenia.");
+    if (!canStaffAccess(req.user, zgloszenie))
+      return FORBIDDEN(res, "Brak dostępu do tego zgłoszenia.");
+
+    const historia = await zgloszenieService.listHistoria(id);
+    return SUCCESS(res, "Historia zmian", { historia });
+  } catch {
+    return SERVER_ERROR(
+      res,
+      "Wystąpił błąd serwera podczas pobierania historii.",
+    );
+  }
+};
+
+// Statystyki — urzędnik widzi swoją gminę, superadmin wszystkie.
+export const getStatystyki = async (
+  req: AuthenticatedRequest,
+  res: Response,
+) => {
+  try {
+    const parsed = statystykiQuerySchema.safeParse(req.query);
+    if (!parsed.success) return MISSING_QUERY_PARAMS(res, parsed.error.issues);
+
+    const statystyki = await zgloszenieService.getStatystyki({
+      gminaId: req.user!.isSuperadmin
+        ? undefined
+        : (req.user!.urzednikGminaId ?? -1),
+      from: parsed.data.from ? new Date(parsed.data.from) : undefined,
+      // Do końca dnia „to", żeby zakres był domknięty (inclusive).
+      to: parsed.data.to
+        ? new Date(`${parsed.data.to}T23:59:59.999Z`)
+        : undefined,
+    });
+    return SUCCESS(res, "Statystyki", { statystyki });
+  } catch {
+    return SERVER_ERROR(
+      res,
+      "Wystąpił błąd serwera podczas pobierania statystyk.",
+    );
+  }
+};
+
+// „+1" — potwierdzenie cudzego zgłoszenia (zalogowany). Idempotentne.
+export const confirmZgloszenie = async (
+  req: AuthenticatedRequest,
+  res: Response,
+) => {
+  try {
+    const id = parseId(req.params.id);
+    if (id === null) return BAD_REQUEST(res, "Niepoprawne id zgłoszenia.");
+
+    const existing = await zgloszenieService.findZgloszenieById(id);
+    if (!existing) return NOT_FOUND(res, "Nie znaleziono zgłoszenia.");
+    if (existing.userId === req.user!.userId)
+      return BAD_REQUEST(res, "Nie można potwierdzić własnego zgłoszenia.");
+
+    await zgloszenieService.addPotwierdzenie(id, req.user!.userId);
+    const confirmations = await zgloszenieService.countPotwierdzenia(id);
+    return SUCCESS(res, "Zgłoszenie potwierdzone.", { confirmations });
+  } catch {
+    return SERVER_ERROR(
+      res,
+      "Wystąpił błąd serwera podczas potwierdzania zgłoszenia.",
+    );
+  }
+};
+
+export const unconfirmZgloszenie = async (
+  req: AuthenticatedRequest,
+  res: Response,
+) => {
+  try {
+    const id = parseId(req.params.id);
+    if (id === null) return BAD_REQUEST(res, "Niepoprawne id zgłoszenia.");
+
+    await zgloszenieService.removePotwierdzenie(id, req.user!.userId);
+    const confirmations = await zgloszenieService.countPotwierdzenia(id);
+    return SUCCESS(res, "Potwierdzenie wycofane.", { confirmations });
+  } catch {
+    return SERVER_ERROR(
+      res,
+      "Wystąpił błąd serwera podczas wycofywania potwierdzenia.",
     );
   }
 };

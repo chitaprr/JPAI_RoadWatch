@@ -13,6 +13,7 @@ enum Rola {
   MIESZKANIEC
   URZEDNIK
   WYKONAWCA
+  ADMIN
 }
 
 model User {
@@ -24,6 +25,11 @@ model User {
   isSuperadmin Boolean  @default(false)
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
+
+  // Gmina zamieszkania wybierana przy rejestracji (mieszkaniec). Nullable dla
+  // starych kont; używana m.in. do podpowiedzi gminy w formularzu zgłoszenia.
+  gmina   Gmina? @relation("GminaMieszkancy", fields: [gminaId], references: [id])
+  gminaId Int?   @map("gmina_id")
 
   // Powiązanie z gminą tylko dla ról urzędnika/admina; mieszkaniec ma oba null.
   urzednikGmina   Gmina? @relation("GminaUrzednicy", fields: [urzednikGminaId], references: [id])
@@ -37,12 +43,18 @@ model User {
 
   reportedZgloszenia Zgloszenie[] @relation("ReportedZgloszenia")
   assignedZgloszenia Zgloszenie[] @relation("AssignedZgloszenia")
+
+  komentarze    Komentarz[]
+  historiaZmian HistoriaZmian[]
+  subskrypcje   PushSubscription[]
+  potwierdzenia Potwierdzenie[]
 }
 
 model Gmina {
   id   Int    @id @default(autoincrement())
   name String @db.VarChar
 
+  mieszkancy User[]       @relation("GminaMieszkancy")
   urzednicy  User[]       @relation("GminaUrzednicy")
   admini     User[]       @relation("GminaAdmini")
   wykonawcy  Wykonawca[]
@@ -89,10 +101,74 @@ model Zgloszenie {
   wykonawca Wykonawca? @relation(fields: [contractorId], references: [id])
   gmina     Gmina?     @relation(fields: [gminaId], references: [id])
 
-  zdjecia Zdjecie[]
-  naprawy Naprawa[]
+  zdjecia       Zdjecie[]
+  naprawy       Naprawa[]
+  komentarze    Komentarz[]
+  historia      HistoriaZmian[]
+  potwierdzenia Potwierdzenie[]
 
   @@map("Zgloszenia")
+}
+
+// Subskrypcja Web Push (jedna per urządzenie/przeglądarka użytkownika).
+model PushSubscription {
+  id        Int      @id @default(autoincrement())
+  userId    Int      @map("user_id")
+  endpoint  String   @unique @db.VarChar
+  p256dh    String   @db.VarChar
+  auth      String   @db.VarChar
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamp()
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("PushSubscriptions")
+}
+
+// „+1" / potwierdzenie cudzego zgłoszenia. Jeden głos na użytkownika i zgłoszenie.
+model Potwierdzenie {
+  id           Int      @id @default(autoincrement())
+  zgloszenieId Int      @map("zgloszenie_id")
+  userId       Int      @map("user_id")
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamp()
+
+  zgloszenie Zgloszenie @relation(fields: [zgloszenieId], references: [id], onDelete: Cascade)
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([zgloszenieId, userId])
+  @@map("Potwierdzenia")
+}
+
+// Notatka/komentarz do zgłoszenia (wewnętrzny — widoczny dla obsługi: urzędnik
+// gminy, przypisany wykonawca, superadmin). authorName to migawka na czas wpisu.
+model Komentarz {
+  id           Int      @id @default(autoincrement())
+  zgloszenieId Int      @map("zgloszenie_id")
+  authorId     Int?     @map("author_id")
+  authorName   String   @map("author_name") @db.VarChar
+  content      String   @db.Text
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamp()
+
+  zgloszenie Zgloszenie @relation(fields: [zgloszenieId], references: [id], onDelete: Cascade)
+  author     User?      @relation(fields: [authorId], references: [id])
+
+  @@map("Komentarze")
+}
+
+// Wpis historii zmian zgłoszenia (audit log) — jeden rekord na zmienione pole.
+model HistoriaZmian {
+  id           Int      @id @default(autoincrement())
+  zgloszenieId Int      @map("zgloszenie_id")
+  userId       Int?     @map("user_id")
+  userName     String   @map("user_name") @db.VarChar
+  field        String   @db.VarChar
+  oldValue     String?  @map("old_value") @db.VarChar
+  newValue     String?  @map("new_value") @db.VarChar
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamp()
+
+  zgloszenie Zgloszenie @relation(fields: [zgloszenieId], references: [id], onDelete: Cascade)
+  user       User?      @relation(fields: [userId], references: [id])
+
+  @@map("HistoriaZmian")
 }
 
 model Zdjecie {

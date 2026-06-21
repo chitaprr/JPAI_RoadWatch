@@ -5,6 +5,7 @@ import {
   CREATED,
   BAD_REQUEST,
   NOT_FOUND,
+  FORBIDDEN,
   CONFLICT,
   SERVER_ERROR,
   MISSING_BODY_FIELDS,
@@ -14,6 +15,7 @@ import {
   isForeignKeyViolation,
 } from "../../utils/prismaErrors";
 import { AuthenticatedRequest } from "../../middlewares/authMiddleware";
+import { Rola } from "../../generated/prisma/client";
 import * as wykonawcaService from "./wykonawca.service";
 
 export const createWykonawcaSchema = z.object({
@@ -25,19 +27,39 @@ export const createWykonawcaSchema = z.object({
 // Aktualizacja częściowa.
 export const updateWykonawcaSchema = createWykonawcaSchema.partial();
 
+// Administrator gminy nie podaje gminy — jest ona wymuszana z jego konta.
+const adminCreateSchema = createWykonawcaSchema.omit({ gminaId: true });
+const adminUpdateSchema = adminCreateSchema.partial();
+
 const parseId = (raw: string | string[] | undefined): number | null => {
   if (typeof raw !== "string") return null;
   const id = Number(raw);
   return Number.isInteger(id) && id > 0 ? id : null;
 };
 
-// Lista wykonawców — urzędnik (przypisanie do zgłoszenia) i superadmin (CRUD).
+// Gmina, do której przypisane jest konto wywołującego (urzędnik/administrator).
+const callerGminaId = (req: AuthenticatedRequest): number | null =>
+  req.user!.role === Rola.ADMIN
+    ? req.user!.adminGminaId
+    : req.user!.urzednikGminaId;
+
+// Lista wykonawców. Superadmin widzi wszystkich; urzędnik/administrator —
+// tylko firmy swojej gminy.
 export const getWykonawcy = async (
-  _req: AuthenticatedRequest,
+  req: AuthenticatedRequest,
   res: Response,
 ) => {
   try {
-    const wykonawcy = await wykonawcaService.listWykonawcy();
+    if (req.user!.isSuperadmin) {
+      const wykonawcy = await wykonawcaService.listWykonawcy();
+      return SUCCESS(res, "Lista wykonawców", { wykonawcy });
+    }
+
+    const gminaId = callerGminaId(req);
+    if (gminaId === null)
+      return SUCCESS(res, "Lista wykonawców", { wykonawcy: [] });
+
+    const wykonawcy = await wykonawcaService.listWykonawcyByGmina(gminaId);
     return SUCCESS(res, "Lista wykonawców", { wykonawcy });
   } catch {
     return SERVER_ERROR(
@@ -52,10 +74,25 @@ export const createWykonawca = async (
   res: Response,
 ) => {
   try {
-    const parsed = createWykonawcaSchema.safeParse(req.body);
+    // Superadmin wskazuje gminę; administrator gminy ma ją wymuszoną z konta.
+    if (req.user!.isSuperadmin) {
+      const parsed = createWykonawcaSchema.safeParse(req.body);
+      if (!parsed.success) return MISSING_BODY_FIELDS(res, parsed.error.issues);
+      const wykonawca = await wykonawcaService.createWykonawca(parsed.data);
+      return CREATED(res, "Wykonawca został utworzony.", { wykonawca });
+    }
+
+    const gminaId = req.user!.adminGminaId;
+    if (gminaId === null)
+      return FORBIDDEN(res, "Twoje konto nie jest przypisane do gminy.");
+
+    const parsed = adminCreateSchema.safeParse(req.body);
     if (!parsed.success) return MISSING_BODY_FIELDS(res, parsed.error.issues);
 
-    const wykonawca = await wykonawcaService.createWykonawca(parsed.data);
+    const wykonawca = await wykonawcaService.createWykonawca({
+      ...parsed.data,
+      gminaId,
+    });
     return CREATED(res, "Wykonawca został utworzony.", { wykonawca });
   } catch (error) {
     // gminaId wskazujący na nieistniejącą gminę -> naruszenie FK.
@@ -76,7 +113,24 @@ export const updateWykonawca = async (
     const id = parseId(req.params.id);
     if (id === null) return BAD_REQUEST(res, "Niepoprawne id wykonawcy.");
 
-    const parsed = updateWykonawcaSchema.safeParse(req.body);
+    if (req.user!.isSuperadmin) {
+      const parsed = updateWykonawcaSchema.safeParse(req.body);
+      if (!parsed.success) return MISSING_BODY_FIELDS(res, parsed.error.issues);
+      const wykonawca = await wykonawcaService.updateWykonawca(id, parsed.data);
+      return SUCCESS(res, "Wykonawca zaktualizowany.", { wykonawca });
+    }
+
+    // Administrator gminy — tylko własna gmina, bez zmiany przypisania gminy.
+    const gminaId = req.user!.adminGminaId;
+    if (gminaId === null)
+      return FORBIDDEN(res, "Twoje konto nie jest przypisane do gminy.");
+
+    const existing = await wykonawcaService.findWykonawcaById(id);
+    if (!existing) return NOT_FOUND(res, "Nie znaleziono wykonawcy.");
+    if (existing.gminaId !== gminaId)
+      return FORBIDDEN(res, "Wykonawca należy do innej gminy.");
+
+    const parsed = adminUpdateSchema.safeParse(req.body);
     if (!parsed.success) return MISSING_BODY_FIELDS(res, parsed.error.issues);
 
     const wykonawca = await wykonawcaService.updateWykonawca(id, parsed.data);
@@ -100,6 +154,17 @@ export const deleteWykonawca = async (
   try {
     const id = parseId(req.params.id);
     if (id === null) return BAD_REQUEST(res, "Niepoprawne id wykonawcy.");
+
+    // Administrator gminy może usuwać tylko wykonawców swojej gminy.
+    if (!req.user!.isSuperadmin) {
+      const gminaId = req.user!.adminGminaId;
+      if (gminaId === null)
+        return FORBIDDEN(res, "Twoje konto nie jest przypisane do gminy.");
+      const existing = await wykonawcaService.findWykonawcaById(id);
+      if (!existing) return NOT_FOUND(res, "Nie znaleziono wykonawcy.");
+      if (existing.gminaId !== gminaId)
+        return FORBIDDEN(res, "Wykonawca należy do innej gminy.");
+    }
 
     await wykonawcaService.deleteWykonawca(id);
     return SUCCESS(res, "Wykonawca został usunięty.");

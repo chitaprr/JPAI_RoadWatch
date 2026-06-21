@@ -8,12 +8,17 @@ import {
   SERVER_ERROR,
   MISSING_BODY_FIELDS,
 } from "../../utils/httpCodeResponses/messages";
+import { isForeignKeyViolation } from "../../utils/prismaErrors";
 import * as authService from "./auth.service";
 
 export const registerSchema = z.object({
   email: z.email({ message: "Niepoprawny format adresu email" }),
   name: z.string().min(2, { message: "Imię musi mieć minimum 2 znaki" }),
   password: z.string().min(6, { message: "Hasło musi mieć minimum 6 znaków" }),
+  gminaId: z.coerce
+    .number({ message: "Wybierz gminę" })
+    .int()
+    .positive({ message: "Wybierz gminę" }),
 });
 
 export const loginSchema = z.object({
@@ -40,9 +45,13 @@ export const register = async (req: Request, res: Response) => {
         name: newUser.name,
         role: newUser.role,
         isSuperadmin: newUser.isSuperadmin,
+        gminaId: newUser.gminaId,
       },
     });
-  } catch {
+  } catch (error) {
+    // gminaId wskazujący na nieistniejącą gminę -> naruszenie FK.
+    if (isForeignKeyViolation(error))
+      return BAD_REQUEST(res, "Wskazana gmina nie istnieje.");
     return SERVER_ERROR(res, "Wystąpił błąd serwera podczas rejestracji.");
   }
 };
@@ -71,6 +80,7 @@ export const login = async (req: Request, res: Response) => {
         name: user.name,
         role: user.role,
         isSuperadmin: user.isSuperadmin,
+        gminaId: user.gminaId,
       },
     });
   } catch {

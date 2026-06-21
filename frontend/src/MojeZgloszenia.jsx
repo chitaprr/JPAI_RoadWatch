@@ -50,9 +50,14 @@ function ZgloszenieCard({ z }) {
       </p>
       <div style={{ color: "#6b7280", fontSize: "13px" }}>
         {z.gmina?.name && <span>Gmina: {z.gmina.name} · </span>}
-        <span>Zgłoszono: {new Date(z.createdAt).toLocaleDateString("pl-PL")}</span>
+        <span>
+          Zgłoszono: {new Date(z.createdAt).toLocaleDateString("pl-PL")}
+        </span>
         {z.deadline && (
-          <span> · Termin: {new Date(z.deadline).toLocaleDateString("pl-PL")}</span>
+          <span>
+            {" "}
+            · Termin: {new Date(z.deadline).toLocaleDateString("pl-PL")}
+          </span>
         )}
       </div>
       {z.zdjecia?.[0] && (
@@ -146,10 +151,14 @@ function MojeZgloszenia() {
               marginBottom: "24px",
             }}
           >
-            <h2 style={{ fontSize: "18px", margin: "0 0 6px", color: "#065f46" }}>
+            <h2
+              style={{ fontSize: "18px", margin: "0 0 6px", color: "#065f46" }}
+            >
               Zgłoszenie zostało utworzone ✅
             </h2>
-            <p style={{ margin: "0 0 12px", color: "#065f46", fontSize: "14px" }}>
+            <p
+              style={{ margin: "0 0 12px", color: "#065f46", fontSize: "14px" }}
+            >
               Twój numer zgłoszenia: <strong>#{created.id}</strong>. Zapisz go —
               razem z adresem e-mail pozwala sprawdzić status poniżej.
             </p>
@@ -181,7 +190,9 @@ function MojeZgloszenia() {
           <h2 style={{ fontSize: "18px", marginBottom: "8px" }}>
             Sprawdź status zgłoszenia
           </h2>
-          <p style={{ color: "#6b7280", fontSize: "14px", marginBottom: "12px" }}>
+          <p
+            style={{ color: "#6b7280", fontSize: "14px", marginBottom: "12px" }}
+          >
             Zgłaszałeś jako gość? Podaj numer zgłoszenia i e-mail użyty przy
             zgłoszeniu.
           </p>
