@@ -20,8 +20,39 @@ function ZlecenieCard({ z, onChanged }) {
   const [photos, setPhotos] = useState([]);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const [komentarze, setKomentarze] = useState([]);
+  const [showKomentarze, setShowKomentarze] = useState(false);
+  const [newComment, setNewComment] = useState("");
 
   const done = z.status === "Zakończone";
+
+  // Komentarze ładowane na żądanie (po rozwinięciu sekcji).
+  const toggleKomentarze = async () => {
+    const next = !showKomentarze;
+    setShowKomentarze(next);
+    if (next) {
+      try {
+        const res = await api.get(`/zgloszenia/${z.id}/komentarze`);
+        setKomentarze(res.data.komentarze ?? []);
+      } catch {
+        setError("Nie udało się pobrać komentarzy.");
+      }
+    }
+  };
+
+  const addComment = async () => {
+    if (!newComment.trim()) return;
+    try {
+      await api.post(`/zgloszenia/${z.id}/komentarze`, {
+        content: newComment.trim(),
+      });
+      const res = await api.get(`/zgloszenia/${z.id}/komentarze`);
+      setKomentarze(res.data.komentarze ?? []);
+      setNewComment("");
+    } catch {
+      setError("Nie udało się dodać komentarza.");
+    }
+  };
 
   const setStatus = async (status) => {
     setError("");
@@ -141,6 +172,67 @@ function ZlecenieCard({ z, onChanged }) {
           ))}
         </div>
       )}
+
+      {/* Komentarze do zlecenia (np. powód opóźnienia) — widoczne dla urzędu */}
+      <div
+        style={{
+          borderTop: "1px solid #e5e7eb",
+          marginTop: "10px",
+          paddingTop: "10px",
+        }}
+      >
+        <button
+          onClick={toggleKomentarze}
+          style={{
+            cursor: "pointer",
+            background: "transparent",
+            border: "none",
+            color: "#2563eb",
+            fontSize: "13px",
+            padding: 0,
+          }}
+        >
+          {showKomentarze ? "Ukryj komentarze" : "Komentarze do zlecenia"}
+        </button>
+        {showKomentarze && (
+          <div style={{ marginTop: "8px" }}>
+            {komentarze.length > 0 ? (
+              komentarze.map((k) => (
+                <div
+                  key={k.id}
+                  style={{
+                    fontSize: "13px",
+                    padding: "4px 0",
+                    borderBottom: "1px solid #f0f0f0",
+                  }}
+                >
+                  <div style={{ color: "#374151" }}>{k.content}</div>
+                  <div style={{ fontSize: "12px", color: "#6b7280" }}>
+                    {k.authorName} ·{" "}
+                    {new Date(k.createdAt).toLocaleString("pl-PL")}
+                  </div>
+                </div>
+              ))
+            ) : (
+              <p style={{ fontSize: "13px", color: "#6b7280", margin: "4px 0" }}>
+                Brak komentarzy.
+              </p>
+            )}
+            <div style={{ display: "flex", gap: "8px", marginTop: "6px" }}>
+              <input
+                value={newComment}
+                onChange={(e) => setNewComment(e.target.value)}
+                placeholder="Dodaj komentarz (np. powód opóźnienia)…"
+                style={{ flex: 1 }}
+                onKeyDown={(e) => e.key === "Enter" && addComment()}
+              />
+              <button onClick={addComment} style={{ cursor: "pointer" }}>
+                Dodaj
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
 
       {error && <p style={{ color: "#b91c1c", fontSize: "14px" }}>{error}</p>}
 

@@ -7,6 +7,7 @@ import markerShadow from "leaflet/dist/images/marker-shadow.png";
 import api from "../services/api";
 import { getUser } from "../services/auth";
 import Navbar from "../Navbar";
+import { exportCsv, exportPdf } from "../utils/export";
 
 // Ikona markera Leaflet gubi ścieżki przy bundlowaniu (Vite) — ustawiamy ręcznie.
 L.Marker.prototype.options.icon = L.icon({
@@ -47,14 +48,54 @@ function UrzednikPanel() {
   const [loading, setLoading] = useState(true);
   // Szczegóły wybranego zgłoszenia (z naprawami i opisem od wykonawcy).
   const [detail, setDetail] = useState(null);
+  const [komentarze, setKomentarze] = useState([]);
+  const [historia, setHistoria] = useState([]);
+  const [newComment, setNewComment] = useState("");
+  // Statystyki (z opcjonalnym zakresem dat).
+  const [stats, setStats] = useState(null);
+  const [from, setFrom] = useState("");
+  const [to, setTo] = useState("");
+
+  const loadStats = async () => {
+    try {
+      const params = {};
+      if (from) params.from = from;
+      if (to) params.to = to;
+      const res = await api.get("/zgloszenia/statystyki", { params });
+      setStats(res.data.statystyki);
+    } catch {
+      // Statystyki są dodatkiem — błąd nie blokuje panelu.
+    }
+  };
 
   const openDetail = async (id) => {
     setError("");
+    setNewComment("");
     try {
-      const res = await api.get(`/zgloszenia/${id}`);
-      setDetail(res.data.zgloszenie);
+      const [z, k, h] = await Promise.all([
+        api.get(`/zgloszenia/${id}`),
+        api.get(`/zgloszenia/${id}/komentarze`),
+        api.get(`/zgloszenia/${id}/historia`),
+      ]);
+      setDetail(z.data.zgloszenie);
+      setKomentarze(k.data.komentarze ?? []);
+      setHistoria(h.data.historia ?? []);
     } catch {
       setError(`Nie udało się pobrać szczegółów zgłoszenia #${id}.`);
+    }
+  };
+
+  const addComment = async () => {
+    if (!newComment.trim() || !detail) return;
+    try {
+      await api.post(`/zgloszenia/${detail.id}/komentarze`, {
+        content: newComment.trim(),
+      });
+      const res = await api.get(`/zgloszenia/${detail.id}/komentarze`);
+      setKomentarze(res.data.komentarze ?? []);
+      setNewComment("");
+    } catch {
+      setError("Nie udało się dodać komentarza.");
     }
   };
 
@@ -79,6 +120,8 @@ function UrzednikPanel() {
     // Pobranie danych przy montażu (legalny efekt) — celowo setState.
     // eslint-disable-next-line react-hooks/set-state-in-effect
     load();
+    loadStats();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const patchRow = (id, field, value) =>
@@ -112,6 +155,16 @@ function UrzednikPanel() {
     () => (statusFilter ? rows.filter((r) => r.status === statusFilter) : rows),
     [rows, statusFilter],
   );
+
+  // Nazwa firmy wykonawcy po id — używana w eksporcie.
+  const wykonawcaName = (id) => wykonawcy.find((w) => w.id === id)?.name ?? "";
+
+  // Wzbogacenie wierszy o nazwę wykonawcy do eksportu CSV/PDF.
+  const exportRows = () =>
+    filtered.map((r) => ({
+      ...r,
+      wykonawcaName: wykonawcaName(r.contractorId),
+    }));
 
   // Środek mapy: pierwsze zgłoszenie z listy albo domyślny.
   const center = useMemo(() => {
@@ -154,6 +207,78 @@ function UrzednikPanel() {
             style={{ marginLeft: "12px", color: "#6b7280", fontSize: "13px" }}
           >
             {filtered.length} zgłoszeń
+          </span>
+          <button
+            onClick={() => exportCsv(exportRows())}
+            style={{ marginLeft: "12px", cursor: "pointer" }}
+          >
+            Eksport CSV
+          </button>
+          <button
+            onClick={() => exportPdf(exportRows())}
+            style={{ marginLeft: "6px", cursor: "pointer" }}
+          >
+            Eksport PDF
+          </button>
+        </div>
+
+        {/* Statystyki gminy */}
+        <div
+          style={{
+            display: "flex",
+            flexWrap: "wrap",
+            alignItems: "center",
+            gap: "16px",
+            padding: "12px 16px",
+            marginBottom: "20px",
+            background: "#f9fafb",
+            border: "1px solid #e5e7eb",
+            borderRadius: "6px",
+            fontSize: "14px",
+          }}
+        >
+          <strong>Statystyki:</strong>
+          {stats ? (
+            <>
+              <span>
+                Łącznie: <b>{stats.total}</b>
+              </span>
+              <span>
+                Zakończone: <b>{stats.resolvedCount}</b>
+              </span>
+              <span>
+                Śr. czas realizacji:{" "}
+                <b>
+                  {stats.avgResolutionDays !== null
+                    ? `${stats.avgResolutionDays} dni`
+                    : "—"}
+                </b>
+              </span>
+              <span style={{ color: "#6b7280" }}>
+                {Object.entries(stats.byStatus)
+                  .map(([s, n]) => `${s}: ${n}`)
+                  .join(" · ")}
+              </span>
+            </>
+          ) : (
+            <span style={{ color: "#6b7280" }}>Ładowanie…</span>
+          )}
+          <span style={{ marginLeft: "auto", display: "flex", gap: "6px", alignItems: "center" }}>
+            <label style={{ fontSize: "13px" }}>od</label>
+            <input
+              type="date"
+              value={from}
+              onChange={(e) => setFrom(e.target.value)}
+            />
+            <label style={{ fontSize: "13px" }}>do</label>
+            <input
+              type="date"
+              value={to}
+              onChange={(e) => setTo(e.target.value)}
+            />
+            <button onClick={loadStats} style={{ cursor: "pointer" }}>
+              Filtruj
+            </button>
           </span>
         </div>
 
@@ -419,6 +544,69 @@ function UrzednikPanel() {
             ) : (
               <p style={{ fontSize: "14px", color: "#6b7280" }}>
                 Brak napraw — wykonawca jeszcze nie dodał opisu.
+              </p>
+            )}
+
+            {/* Komentarze / notatki wewnętrzne */}
+            <h3 style={{ fontSize: "15px", margin: "16px 0 6px" }}>
+              Komentarze (notatki wewnętrzne)
+            </h3>
+            {komentarze.length > 0 ? (
+              komentarze.map((k) => (
+                <div
+                  key={k.id}
+                  style={{
+                    fontSize: "14px",
+                    padding: "6px 0",
+                    borderBottom: "1px solid #f0f0f0",
+                  }}
+                >
+                  <div style={{ color: "#374151" }}>{k.content}</div>
+                  <div style={{ fontSize: "12px", color: "#6b7280" }}>
+                    {k.authorName} ·{" "}
+                    {new Date(k.createdAt).toLocaleString("pl-PL")}
+                  </div>
+                </div>
+              ))
+            ) : (
+              <p style={{ fontSize: "14px", color: "#6b7280" }}>
+                Brak komentarzy.
+              </p>
+            )}
+            <div style={{ display: "flex", gap: "8px", marginTop: "8px" }}>
+              <input
+                value={newComment}
+                onChange={(e) => setNewComment(e.target.value)}
+                placeholder="Dodaj notatkę…"
+                style={{ flex: 1 }}
+                onKeyDown={(e) => e.key === "Enter" && addComment()}
+              />
+              <button onClick={addComment} style={{ cursor: "pointer" }}>
+                Dodaj
+              </button>
+            </div>
+
+            {/* Historia zmian (audit log) */}
+            <h3 style={{ fontSize: "15px", margin: "16px 0 6px" }}>
+              Historia zmian
+            </h3>
+            {historia.length > 0 ? (
+              <ul style={{ fontSize: "13px", color: "#374151", paddingLeft: "18px" }}>
+                {historia.map((h) => (
+                  <li key={h.id} style={{ marginBottom: "2px" }}>
+                    <span style={{ color: "#6b7280" }}>
+                      {new Date(h.createdAt).toLocaleString("pl-PL")} ·{" "}
+                      {h.userName} ·{" "}
+                    </span>
+                    {h.field === "utworzenie"
+                      ? `utworzono (status: ${h.newValue})`
+                      : `${h.field}: ${h.oldValue ?? "—"} → ${h.newValue ?? "—"}`}
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p style={{ fontSize: "14px", color: "#6b7280" }}>
+                Brak historii.
               </p>
             )}
           </div>

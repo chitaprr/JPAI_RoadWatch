@@ -13,10 +13,16 @@ export const createUser = async (data: {
   email: string;
   name: string;
   password: string;
+  gminaId?: number | null;
 }) => {
   const hashedPassword = await bcrypt.hash(data.password, SALT_ROUNDS);
   return prisma.user.create({
-    data: { email: data.email, name: data.name, password: hashedPassword },
+    data: {
+      email: data.email,
+      name: data.name,
+      password: hashedPassword,
+      gminaId: data.gminaId ?? null,
+    },
   });
 };
 

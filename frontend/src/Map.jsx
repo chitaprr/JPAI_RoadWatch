@@ -5,6 +5,7 @@ import "leaflet/dist/leaflet.css";
 import markerIcon from "leaflet/dist/images/marker-icon.png";
 import markerShadow from "leaflet/dist/images/marker-shadow.png";
 import api from "./services/api";
+import { isLoggedIn } from "./services/auth";
 import Navbar from "./Navbar";
 
 // Domyślna ikona markera Leaflet gubi ścieżki przy bundlowaniu (Vite) — ustawiamy ją ręcznie.
@@ -24,6 +25,7 @@ const API_ORIGIN = (
 function Map() {
   const [zgloszenia, setZgloszenia] = useState([]);
   const [error, setError] = useState(null);
+  const loggedIn = isLoggedIn();
 
   useEffect(() => {
     // Publiczny odczyt — bez tokena (skipAuth), żeby ewentualny resztkowy token
@@ -33,6 +35,19 @@ function Map() {
       .then((res) => setZgloszenia(res.data.zgloszenia ?? []))
       .catch(() => setError("Nie udało się pobrać zgłoszeń."));
   }, []);
+
+  // „+1" — potwierdzenie cudzego zgłoszenia. Aktualizuje licznik z odpowiedzi.
+  const confirm = async (id) => {
+    try {
+      const res = await api.post(`/zgloszenia/${id}/potwierdz`);
+      const confirmations = res.data.confirmations;
+      setZgloszenia((prev) =>
+        prev.map((z) => (z.id === id ? { ...z, confirmations } : z)),
+      );
+    } catch (e) {
+      alert(e.response?.data?.msg ?? "Nie udało się potwierdzić zgłoszenia.");
+    }
+  };
 
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100vh" }}>
@@ -84,6 +99,29 @@ function Map() {
                     />
                   </>
                 )}
+                <br />
+                <div style={{ marginTop: "8px" }}>
+                  <span style={{ fontWeight: "bold" }}>
+                    👍 {z.confirmations ?? 0}
+                  </span>
+                  {loggedIn && (
+                    <button
+                      onClick={() => confirm(z.id)}
+                      style={{
+                        marginLeft: "8px",
+                        cursor: "pointer",
+                        border: "none",
+                        borderRadius: "4px",
+                        background: "#2563eb",
+                        color: "white",
+                        padding: "2px 8px",
+                      }}
+                      title="Potwierdź, że ten problem też Cię dotyczy"
+                    >
+                      +1 Potwierdzam
+                    </button>
+                  )}
+                </div>
               </Popup>
             </Marker>
           ))}

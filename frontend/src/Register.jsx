@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import api from "./services/api";
 import { saveAuth } from "./services/auth";
@@ -8,7 +8,18 @@ function Register() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [gminaId, setGminaId] = useState("");
+  const [gminy, setGminy] = useState([]);
   const navigate = useNavigate();
+
+  // Lista gmin do wyboru — endpoint publiczny (bez logowania).
+  useEffect(() => {
+    api
+      .get("/gminy")
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      .then((res) => setGminy(res.data.gminy ?? []))
+      .catch(() => {});
+  }, []);
 
   const handleRegister = async (event) => {
     event.preventDefault();
@@ -18,6 +29,7 @@ function Register() {
         name,
         email,
         password,
+        gminaId: Number(gminaId),
       });
       // Backend (CREATED) zagnieżdża payload pod `data`: { data: { token, user } }.
       const { token, user } = response.data.data;
@@ -76,6 +88,19 @@ function Register() {
             minLength={6}
             required
           />
+          <select
+            value={gminaId}
+            onChange={(e) => setGminaId(e.target.value)}
+            required
+            style={{ padding: "8px" }}
+          >
+            <option value="">— Wybierz gminę —</option>
+            {gminy.map((g) => (
+              <option key={g.id} value={g.id}>
+                {g.name}
+              </option>
+            ))}
+          </select>
           <button type="submit" style={{ padding: "10px", cursor: "pointer" }}>
             Zarejestruj się
           </button>

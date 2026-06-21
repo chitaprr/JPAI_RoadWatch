@@ -1,5 +1,6 @@
 import { useNavigate, useLocation } from "react-router-dom";
 import { isLoggedIn, getUser, logout } from "./services/auth";
+import { subscribeToPush } from "./services/push";
 
 // Górny pasek nawigacji. Treść przycisków zależy od stanu zalogowania.
 function Navbar() {
@@ -12,6 +13,11 @@ function Navbar() {
     logout();
     // Twardy reload, żeby cały interfejs odświeżył stan logowania.
     window.location.href = "/";
+  };
+
+  const handleEnablePush = async () => {
+    const res = await subscribeToPush();
+    alert(res.msg);
   };
 
   const navBtn = (bg) => ({
@@ -77,7 +83,15 @@ function Navbar() {
                 onClick={() => navigate("/admin")}
                 style={navBtn("#7c3aed")}
               >
-                Panel
+                Panel Admina
+              </button>
+            )}
+            {user?.role === "ADMIN" && location.pathname !== "/gmina" && (
+              <button
+                onClick={() => navigate("/gmina")}
+                style={navBtn("#0d9488")}
+              >
+                Panel gminy
               </button>
             )}
             {(user?.role === "URZEDNIK" || user?.isSuperadmin) &&
@@ -98,6 +112,13 @@ function Navbar() {
                   Panel wykonawcy
                 </button>
               )}
+            <button
+              onClick={handleEnablePush}
+              style={navBtn("#475569")}
+              title="Włącz powiadomienia push"
+            >
+              🔔
+            </button>
             <span style={{ color: "#cbd5e1", fontSize: "14px" }}>
               {user?.email ?? "Zalogowano"}
             </span>

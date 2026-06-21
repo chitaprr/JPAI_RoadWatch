@@ -6,6 +6,8 @@ import {
   updateSchema,
   lookupSchema,
   statusSchema,
+  komentarzSchema,
+  statystykiQuerySchema,
 } from "../routes/zgloszenie/zgloszenie.controller";
 import { updateUserSchema } from "../routes/user/user.controller";
 import { createNaprawaSchema } from "../routes/naprawa/naprawa.controller";
@@ -14,6 +16,10 @@ import {
   createWykonawcaSchema,
   updateWykonawcaSchema,
 } from "../routes/wykonawca/wykonawca.controller";
+import {
+  subscribeSchema,
+  unsubscribeSchema,
+} from "../routes/push/push.controller";
 
 /**
  * Specyfikacja OpenAPI generowana z tych samych schematów Zod, które walidują
@@ -64,9 +70,11 @@ const userPublic = z
     id: z.number(),
     email: z.email(),
     name: z.string(),
-    role: z.enum(["MIESZKANIEC", "URZEDNIK", "WYKONAWCA"]),
+    role: z.enum(["MIESZKANIEC", "URZEDNIK", "WYKONAWCA", "ADMIN"]),
     isSuperadmin: z.boolean(),
+    gminaId: z.number().nullable().optional(),
     urzednikGminaId: z.number().nullable().optional(),
+    adminGminaId: z.number().nullable().optional(),
     wykonawcaId: z.number().nullable().optional(),
   })
   .meta({ id: "UserPublic" });
@@ -79,6 +87,39 @@ const authPayload = {
 const gmina = z
   .object({ id: z.number(), name: z.string() })
   .meta({ id: "Gmina" });
+
+const komentarz = z
+  .object({
+    id: z.number(),
+    zgloszenieId: z.number(),
+    authorId: z.number().nullable(),
+    authorName: z.string(),
+    content: z.string(),
+    createdAt: z.string(),
+  })
+  .meta({ id: "Komentarz" });
+
+const historiaZmian = z
+  .object({
+    id: z.number(),
+    zgloszenieId: z.number(),
+    userId: z.number().nullable(),
+    userName: z.string(),
+    field: z.string(),
+    oldValue: z.string().nullable(),
+    newValue: z.string().nullable(),
+    createdAt: z.string(),
+  })
+  .meta({ id: "HistoriaZmian" });
+
+const statystyki = z
+  .object({
+    total: z.number(),
+    byStatus: z.record(z.string(), z.number()),
+    avgResolutionDays: z.number().nullable(),
+    resolvedCount: z.number(),
+  })
+  .meta({ id: "Statystyki" });
 
 const wykonawca = z
   .object({
@@ -155,6 +196,7 @@ const zgloszeniePublic = z
     status: z.string(),
     priority: z.number(),
     createdAt: z.string(),
+    confirmations: z.number(),
     zdjecia: z
       .array(z.object({ id: z.number(), filePath: z.string() }))
       .optional(),
@@ -733,6 +775,145 @@ export const openApiDocument = createDocument({
         },
       },
     },
+    "/zgloszenia/statystyki": {
+      get: {
+        tags: ["Zgłoszenia"],
+        summary: "Statystyki zgłoszeń (urzędnik/superadmin)",
+        description:
+          "Liczba zgłoszeń, rozkład statusów i średni czas realizacji (dni). Urzędnik widzi swoją gminę; superadmin wszystkie. Opcjonalny zakres dat `from`/`to`.",
+        security: [{ bearerAuth: [] }],
+        requestParams: { query: statystykiQuerySchema },
+        responses: {
+          "200": {
+            description: "Statystyki",
+            content: {
+              "application/json": {
+                schema: successEnvelope({ statystyki }),
+              },
+            },
+          },
+          "400": jsonError("Niepoprawne parametry", validationErrorEnvelope),
+          "401": jsonError("Brak tokena"),
+          "403": jsonError("Brak uprawnień"),
+          "500": jsonError("Błąd serwera"),
+        },
+      },
+    },
+    "/zgloszenia/{id}/komentarze": {
+      get: {
+        tags: ["Zgłoszenia"],
+        summary: "Komentarze/notatki do zgłoszenia",
+        description:
+          "Dostęp dla obsługi: urzędnik/administrator gminy, przypisany wykonawca, superadmin.",
+        security: [{ bearerAuth: [] }],
+        requestParams: idParam,
+        responses: {
+          "200": {
+            description: "Lista komentarzy",
+            content: {
+              "application/json": {
+                schema: successEnvelope({ komentarze: z.array(komentarz) }),
+              },
+            },
+          },
+          "401": jsonError("Brak tokena"),
+          "403": jsonError("Brak dostępu"),
+          "404": jsonError("Nie znaleziono zgłoszenia"),
+          "500": jsonError("Błąd serwera"),
+        },
+      },
+      post: {
+        tags: ["Zgłoszenia"],
+        summary: "Dodanie komentarza do zgłoszenia",
+        security: [{ bearerAuth: [] }],
+        requestParams: idParam,
+        requestBody: {
+          content: { "application/json": { schema: komentarzSchema } },
+        },
+        responses: {
+          "201": {
+            description: "Komentarz dodany",
+            content: {
+              "application/json": {
+                schema: createdEnvelope(z.object({ komentarz })),
+              },
+            },
+          },
+          "400": jsonError("Błąd walidacji", validationErrorEnvelope),
+          "401": jsonError("Brak tokena"),
+          "403": jsonError("Brak dostępu"),
+          "404": jsonError("Nie znaleziono zgłoszenia"),
+          "500": jsonError("Błąd serwera"),
+        },
+      },
+    },
+    "/zgloszenia/{id}/historia": {
+      get: {
+        tags: ["Zgłoszenia"],
+        summary: "Historia zmian zgłoszenia (audit log)",
+        description:
+          "Dostęp dla obsługi: urzędnik/administrator gminy, przypisany wykonawca, superadmin.",
+        security: [{ bearerAuth: [] }],
+        requestParams: idParam,
+        responses: {
+          "200": {
+            description: "Historia zmian",
+            content: {
+              "application/json": {
+                schema: successEnvelope({ historia: z.array(historiaZmian) }),
+              },
+            },
+          },
+          "401": jsonError("Brak tokena"),
+          "403": jsonError("Brak dostępu"),
+          "404": jsonError("Nie znaleziono zgłoszenia"),
+          "500": jsonError("Błąd serwera"),
+        },
+      },
+    },
+    "/zgloszenia/{id}/potwierdz": {
+      post: {
+        tags: ["Zgłoszenia"],
+        summary: "Potwierdzenie (+1) cudzego zgłoszenia",
+        description:
+          "Idempotentne. Nie można potwierdzić własnego zgłoszenia. Zwraca aktualną liczbę potwierdzeń.",
+        security: [{ bearerAuth: [] }],
+        requestParams: idParam,
+        responses: {
+          "200": {
+            description: "Potwierdzono",
+            content: {
+              "application/json": {
+                schema: successEnvelope({ confirmations: z.number() }),
+              },
+            },
+          },
+          "400": jsonError("Własne zgłoszenie / niepoprawne id"),
+          "401": jsonError("Brak tokena"),
+          "404": jsonError("Nie znaleziono zgłoszenia"),
+          "500": jsonError("Błąd serwera"),
+        },
+      },
+      delete: {
+        tags: ["Zgłoszenia"],
+        summary: "Wycofanie potwierdzenia",
+        security: [{ bearerAuth: [] }],
+        requestParams: idParam,
+        responses: {
+          "200": {
+            description: "Wycofano",
+            content: {
+              "application/json": {
+                schema: successEnvelope({ confirmations: z.number() }),
+              },
+            },
+          },
+          "400": jsonError("Niepoprawne id"),
+          "401": jsonError("Brak tokena"),
+          "500": jsonError("Błąd serwera"),
+        },
+      },
+    },
     "/zgloszenia/{id}": {
       get: {
         tags: ["Zgłoszenia"],
@@ -802,6 +983,78 @@ export const openApiDocument = createDocument({
           "400": jsonError("Niepoprawne id"),
           "401": jsonError("Brak tokena"),
           "404": jsonError("Nie znaleziono zgłoszenia"),
+          "500": jsonError("Błąd serwera"),
+        },
+      },
+    },
+    "/push/public-key": {
+      get: {
+        tags: ["Push"],
+        summary: "Klucz publiczny VAPID + status push",
+        responses: {
+          "200": {
+            description: "Klucz publiczny",
+            content: {
+              "application/json": {
+                schema: successEnvelope({
+                  enabled: z.boolean(),
+                  publicKey: z.string().nullable(),
+                }),
+              },
+            },
+          },
+          "500": jsonError("Błąd serwera"),
+        },
+      },
+    },
+    "/push/subscribe": {
+      post: {
+        tags: ["Push"],
+        summary: "Zapis subskrypcji push (zalogowany)",
+        security: [{ bearerAuth: [] }],
+        requestBody: {
+          content: { "application/json": { schema: subscribeSchema } },
+        },
+        responses: {
+          "200": {
+            description: "Subskrypcja zapisana",
+            content: {
+              "application/json": {
+                schema: z.object({
+                  success: z.literal(true),
+                  msg: z.string(),
+                }),
+              },
+            },
+          },
+          "400": jsonError("Błąd walidacji", validationErrorEnvelope),
+          "401": jsonError("Brak tokena"),
+          "500": jsonError("Błąd serwera"),
+        },
+      },
+    },
+    "/push/unsubscribe": {
+      post: {
+        tags: ["Push"],
+        summary: "Usunięcie subskrypcji push (zalogowany)",
+        security: [{ bearerAuth: [] }],
+        requestBody: {
+          content: { "application/json": { schema: unsubscribeSchema } },
+        },
+        responses: {
+          "200": {
+            description: "Subskrypcja usunięta",
+            content: {
+              "application/json": {
+                schema: z.object({
+                  success: z.literal(true),
+                  msg: z.string(),
+                }),
+              },
+            },
+          },
+          "400": jsonError("Błąd walidacji", validationErrorEnvelope),
+          "401": jsonError("Brak tokena"),
           "500": jsonError("Błąd serwera"),
         },
       },

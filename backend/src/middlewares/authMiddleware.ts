@@ -15,6 +15,7 @@ export interface AuthenticatedRequest extends Request {
     role: Rola;
     wykonawcaId: number | null;
     urzednikGminaId: number | null;
+    adminGminaId: number | null;
   };
 }
 
@@ -33,6 +34,7 @@ const loadUser = (
         role: true,
         isSuperadmin: true,
         urzednikGminaId: true,
+        adminGminaId: true,
         wykonawcaId: true,
       },
     })
@@ -44,6 +46,7 @@ const loadUser = (
             role: u.role,
             isSuperadmin: u.isSuperadmin,
             urzednikGminaId: u.urzednikGminaId,
+            adminGminaId: u.adminGminaId,
             wykonawcaId: u.wykonawcaId,
           }
         : null,
