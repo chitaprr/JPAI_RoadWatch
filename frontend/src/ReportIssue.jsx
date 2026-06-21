@@ -102,6 +102,12 @@ function ReportIssue() {
       return;
     }
 
+    await submit(false);
+  };
+
+  // Wysyłka zgłoszenia. force=true pomija detekcję duplikatów (po potwierdzeniu
+  // przez użytkownika, gdy w pobliżu istnieje już podobne zgłoszenie).
+  const submit = async (force) => {
     // Backend przyjmuje multipart/form-data; pliki w polu "zdjecia" (do 5).
     const formData = new FormData();
     formData.append("title", title);
@@ -111,17 +117,20 @@ function ReportIssue() {
     formData.append("lat", position[0]);
     formData.append("lng", position[1]);
     formData.append("gminaId", gminaId);
+    if (force) formData.append("force", "true");
     photos.forEach((photo) => formData.append("zdjecia", photo));
 
     try {
       // Zalogowany -> wysyłamy z tokenem (zgłoszenie przypięte do konta).
       // Gość -> skipAuth, żeby ewentualny resztkowy token nie został odrzucony.
-      await api.post("/zgloszenia", formData, {
+      const res = await api.post("/zgloszenia", formData, {
         headers: { "Content-Type": "multipart/form-data" },
         skipAuth: !isLoggedIn,
       });
-      alert("Zgłoszenie zostało pomyślnie wysłane!");
-      navigate("/");
+      // CREATED zagnieżdża payload pod `data`. Przekazujemy utworzone zgłoszenie
+      // do widoku "Moje zgłoszenia", żeby użytkownik (zwł. gość) zobaczył numer.
+      const created = res.data?.data?.zgloszenie;
+      navigate("/moje-zgloszenia", { state: { created } });
     } catch (error) {
       // Token wygasł/niepoprawny: czyścimy go i odsłaniamy pole email,
       // by można było wysłać ponownie jako gość.
@@ -133,12 +142,20 @@ function ReportIssue() {
         );
         return;
       }
-      // 409 = istnieją zgłoszenia w pobliżu (możliwy duplikat).
-      if (error.response?.status === 409) {
-        alert("W pobliżu istnieje już podobne zgłoszenie.");
-      } else {
-        alert("Wystąpił błąd podczas wysyłania zgłoszenia.");
+      // 409 = istnieją zgłoszenia w pobliżu (możliwy duplikat). Pytamy, czy
+      // utworzyć mimo to, i jeśli tak — ponawiamy z force=true.
+      if (error.response?.status === 409 && !force) {
+        const count = error.response.data?.duplicates?.length ?? 0;
+        const ok = window.confirm(
+          (count > 0
+            ? `W pobliżu znaleziono podobne zgłoszenia (${count}).`
+            : "W pobliżu istnieje już podobne zgłoszenie.") +
+            " Czy chcesz utworzyć je mimo to?",
+        );
+        if (ok) await submit(true);
+        return;
       }
+      alert("Wystąpił błąd podczas wysyłania zgłoszenia.");
     }
   };
 

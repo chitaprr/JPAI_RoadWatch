@@ -6,10 +6,13 @@ import Map from "./Map";
 import Login from "./Login";
 import Register from "./Register";
 import ReportIssue from "./ReportIssue";
+import MojeZgloszenia from "./MojeZgloszenia";
 import RequireSuperadmin from "./RequireSuperadmin";
 import AdminLayout from "./admin/AdminLayout";
 import RequireUrzednik from "./RequireUrzednik";
 import UrzednikPanel from "./urzednik/UrzednikPanel";
+import RequireWykonawca from "./RequireWykonawca";
+import WykonawcaPanel from "./wykonawca/WykonawcaPanel";
 
 function App() {
   // Odświeżenie danych zalogowanego użytkownika z bazy — rola/gmina mogły się
@@ -35,6 +38,7 @@ function App() {
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
         <Route path="/zgloszenie" element={<ReportIssue />} />
+        <Route path="/moje-zgloszenia" element={<MojeZgloszenia />} />
         {/* Panel admina — dostęp tylko dla superadmina */}
         <Route
           path="/admin"
@@ -51,6 +55,15 @@ function App() {
             <RequireUrzednik>
               <UrzednikPanel />
             </RequireUrzednik>
+          }
+        />
+        {/* Panel wykonawcy — rola WYKONAWCA (lub superadmin) */}
+        <Route
+          path="/wykonawca"
+          element={
+            <RequireWykonawca>
+              <WykonawcaPanel />
+            </RequireWykonawca>
           }
         />
       </Routes>

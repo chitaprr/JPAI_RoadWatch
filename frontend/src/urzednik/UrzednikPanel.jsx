@@ -45,6 +45,18 @@ function UrzednikPanel() {
   const [statusFilter, setStatusFilter] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
+  // Szczegóły wybranego zgłoszenia (z naprawami i opisem od wykonawcy).
+  const [detail, setDetail] = useState(null);
+
+  const openDetail = async (id) => {
+    setError("");
+    try {
+      const res = await api.get(`/zgloszenia/${id}`);
+      setDetail(res.data.zgloszenie);
+    } catch {
+      setError(`Nie udało się pobrać szczegółów zgłoszenia #${id}.`);
+    }
+  };
 
   const load = async () => {
     setLoading(true);
@@ -283,6 +295,12 @@ function UrzednikPanel() {
                     </td>
                     <td style={td}>
                       <button
+                        onClick={() => openDetail(r.id)}
+                        style={{ marginRight: "6px", cursor: "pointer" }}
+                      >
+                        Szczegóły
+                      </button>
+                      <button
                         onClick={() => save(r)}
                         style={{ marginRight: "6px", cursor: "pointer" }}
                       >
@@ -303,6 +321,109 @@ function UrzednikPanel() {
           </div>
         )}
       </div>
+
+      {detail && (
+        <div
+          onClick={() => setDetail(null)}
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0,0,0,0.5)",
+            display: "flex",
+            alignItems: "flex-start",
+            justifyContent: "center",
+            padding: "40px 16px",
+            overflowY: "auto",
+            zIndex: 1200,
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              background: "#fff",
+              borderRadius: "8px",
+              padding: "20px",
+              maxWidth: "640px",
+              width: "100%",
+            }}
+          >
+            <div style={{ display: "flex", justifyContent: "space-between" }}>
+              <h2 style={{ fontSize: "20px", margin: 0 }}>
+                #{detail.id} {detail.title}
+              </h2>
+              <button
+                onClick={() => setDetail(null)}
+                style={{ cursor: "pointer", border: "none", background: "transparent", fontSize: "20px" }}
+              >
+                ✕
+              </button>
+            </div>
+
+            <p style={{ color: "#6b7280", fontSize: "13px", margin: "4px 0 12px" }}>
+              Status: {detail.status}
+              {detail.gmina?.name && ` · Gmina: ${detail.gmina.name}`}
+              {detail.email && ` · Zgłaszający: ${detail.email}`}
+            </p>
+
+            <h3 style={{ fontSize: "15px", margin: "0 0 4px" }}>Opis usterki</h3>
+            <p style={{ fontSize: "14px", color: "#374151", marginTop: 0 }}>
+              {detail.description}
+            </p>
+
+            {detail.zdjecia?.length > 0 && (
+              <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", marginBottom: "16px" }}>
+                {detail.zdjecia.map((zd) => (
+                  <img
+                    key={zd.id}
+                    src={`${API_ORIGIN}${zd.filePath}`}
+                    alt="Usterka"
+                    style={{ width: "120px", height: "120px", objectFit: "cover", borderRadius: "4px" }}
+                  />
+                ))}
+              </div>
+            )}
+
+            <h3 style={{ fontSize: "15px", margin: "8px 0 6px" }}>
+              Naprawy (od wykonawcy)
+            </h3>
+            {detail.naprawy?.length > 0 ? (
+              detail.naprawy.map((n) => (
+                <div
+                  key={n.id}
+                  style={{
+                    border: "1px solid #e5e7eb",
+                    borderRadius: "6px",
+                    padding: "10px",
+                    marginBottom: "10px",
+                  }}
+                >
+                  <div style={{ fontSize: "14px", color: "#374151" }}>
+                    {n.description}
+                  </div>
+                  <div style={{ fontSize: "12px", color: "#6b7280", marginBottom: "6px" }}>
+                    Zakończono:{" "}
+                    {new Date(n.completedAt).toLocaleDateString("pl-PL")}
+                  </div>
+                  <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+                    {n.zdjecia?.map((zd) => (
+                      <img
+                        key={zd.id}
+                        src={`${API_ORIGIN}${zd.filePath}`}
+                        alt="Po naprawie"
+                        style={{ width: "120px", height: "120px", objectFit: "cover", borderRadius: "4px" }}
+                      />
+                    ))}
+                  </div>
+                </div>
+              ))
+            ) : (
+              <p style={{ fontSize: "14px", color: "#6b7280" }}>
+                Brak napraw — wykonawca jeszcze nie dodał opisu.
+              </p>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

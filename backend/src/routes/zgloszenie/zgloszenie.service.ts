@@ -86,6 +86,35 @@ export const listZgloszenia = (filter?: { gminaId?: number }) =>
     orderBy: { createdAt: "desc" },
   });
 
+// Zgłoszenia zalogowanego mieszkańca (po jego userId).
+export const listMyZgloszenia = (userId: number) =>
+  prisma.zgloszenie.findMany({
+    where: { userId },
+    include: { zdjecia: true, gmina: { select: { name: true } } },
+    orderBy: { createdAt: "desc" },
+  });
+
+// Zlecenia wykonawcy — zgłoszenia przypisane do jego firmy (contractorId),
+// wraz z naprawami i ich zdjęciami „po".
+export const listZlecone = (wykonawcaId: number) =>
+  prisma.zgloszenie.findMany({
+    where: { contractorId: wykonawcaId },
+    include: {
+      zdjecia: true,
+      gmina: { select: { name: true } },
+      naprawy: { include: { zdjecia: true }, orderBy: { completedAt: "desc" } },
+    },
+    orderBy: { createdAt: "desc" },
+  });
+
+// Lookup gościa: zgłoszenie odnajdywane TYLKO po parze id + email (oba muszą
+// pasować), żeby nie dało się enumerować cudzych zgłoszeń po samym id.
+export const findZgloszenieByIdAndEmail = (id: number, email: string) =>
+  prisma.zgloszenie.findFirst({
+    where: { id, email },
+    include: { zdjecia: true, gmina: { select: { name: true } } },
+  });
+
 // Publiczna lista do mapy — tylko pola potrzebne do pinezek, bez danych
 // kontaktowych (email) i powiązań użytkowników.
 export const listPublicZgloszenia = () =>
@@ -107,7 +136,13 @@ export const listPublicZgloszenia = () =>
 export const findZgloszenieById = (id: number) =>
   prisma.zgloszenie.findUnique({
     where: { id },
-    include: { zdjecia: true, naprawy: true },
+    include: {
+      zdjecia: true,
+      gmina: { select: { name: true } },
+      // Naprawy wraz ze zdjęciami „po" i opisem od wykonawcy — do widoku
+      // szczegółów (m.in. dla urzędnika).
+      naprawy: { include: { zdjecia: true }, orderBy: { completedAt: "desc" } },
+    },
   });
 
 // Pola triażu, które urzędnik może aktualizować. undefined = bez zmiany.
