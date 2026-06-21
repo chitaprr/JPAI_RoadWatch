@@ -65,12 +65,29 @@ Powiadomienia wymagają `localhost` lub HTTPS. Włącz je przyciskiem 🔔 w apl
 | Komenda (w `backend/`)  | Opis                                          |
 | ----------------------- | --------------------------------------------- |
 | `npm run dev`           | start z hot-reload (nodemon)                  |
+| `npm run seed`          | wypełnia bazę danymi testowymi (zob. niżej)   |
 | `npm run prisma:studio` | przeglądarka bazy danych                      |
 | `npm run prisma:push`   | synchronizacja schematu z bazą (bez migracji) |
 | `npm run check`         | format + lint (uruchamiane przez CI)          |
 | `npm test`              | testy (Vitest)                                |
 
 W `frontend/`: `npm run dev`, `npm run build`, `npm run check`.
+
+## Dane testowe (seed)
+
+`npm run seed` (po `prisma:generate` + `prisma:push`) tworzy gminę **Kraków**, firmę
+wykonawczą **januszpol** (NIP 1234567890) oraz po jednym koncie na rolę. Hasło dla
+wszystkich: **`testtest`**.
+
+| E-mail                      | Rola                  |
+| --------------------------- | --------------------- |
+| `superadmin@roadwatch.com`  | superadmin            |
+| `admin@roadwatch.com`       | administrator gminy   |
+| `urzednik@roadwatch.com`    | urzędnik (Kraków)     |
+| `wykonawca@roadwatch.com`   | wykonawca (januszpol) |
+| `mieszkaniec@roadwatch.com` | mieszkaniec           |
+
+Skrypt jest idempotentny — można go uruchamiać wielokrotnie.
 
 ## Produkcja
 
