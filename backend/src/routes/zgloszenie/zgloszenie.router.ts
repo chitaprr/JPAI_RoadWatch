@@ -2,6 +2,10 @@ import { Router } from "express";
 import {
   createZgloszenie,
   getZgloszenia,
+  getMyZgloszenia,
+  getZlecone,
+  updateStatusByContractor,
+  lookupZgloszenie,
   getPublicZgloszenia,
   getZgloszenieById,
   updateZgloszenie,
@@ -27,6 +31,28 @@ zgloszenieRouter.post(
 
 // Publiczna mapa — odczyt bez logowania. Musi być przed "/:id".
 zgloszenieRouter.get("/public", getPublicZgloszenia);
+
+// „Moje zgłoszenia" — każdy zalogowany widzi własne (po userId). Przed "/:id".
+zgloszenieRouter.get("/moje", authenticateJWT, getMyZgloszenia);
+
+// Lookup gościa po ID + email — publiczny. Przed "/:id".
+zgloszenieRouter.get("/lookup", lookupZgloszenie);
+
+// Wykonawca — lista zleceń jego firmy. Przed "/:id".
+zgloszenieRouter.get(
+  "/zlecone",
+  authenticateJWT,
+  requireRole(Rola.WYKONAWCA),
+  getZlecone,
+);
+
+// Wykonawca — zmiana statusu własnego zlecenia (np. "W realizacji").
+zgloszenieRouter.patch(
+  "/:id/status",
+  authenticateJWT,
+  requireRole(Rola.WYKONAWCA),
+  updateStatusByContractor,
+);
 
 // Triaż — tylko urzędnik (scoping do swojej gminy w kontrolerze) i superadmin.
 zgloszenieRouter.get(

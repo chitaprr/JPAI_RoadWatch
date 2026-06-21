@@ -11,6 +11,7 @@ import {
   FORBIDDEN,
   SERVER_ERROR,
   MISSING_BODY_FIELDS,
+  MISSING_QUERY_PARAMS,
 } from "../../utils/httpCodeResponses/messages";
 import { AuthenticatedRequest } from "../../middlewares/authMiddleware";
 import { UPLOAD_DIR, UPLOAD_ROUTE_PREFIX } from "../../middlewares/upload";
@@ -46,6 +47,17 @@ export const updateSchema = z.object({
   priority: z.number().int().min(0).max(3).optional(),
   status: z.string().min(1).optional(),
   deadline: z.iso.datetime().nullable().optional(),
+});
+
+// Parametry zapytania dla lookupu gościa (GET /zgloszenia/lookup).
+export const lookupSchema = z.object({
+  id: z.coerce.number().int().positive(),
+  email: z.email({ message: "Niepoprawny format adresu email" }),
+});
+
+// Zmiana statusu przez wykonawcę (PATCH /zgloszenia/:id/status).
+export const statusSchema = z.object({
+  status: z.string().min(1, { message: "Status jest wymagany" }),
 });
 
 // Prisma rzuca P2025, gdy rekord do update/delete nie istnieje.
@@ -160,6 +172,100 @@ export const getZgloszenia = async (
     return SERVER_ERROR(
       res,
       "Wystąpił błąd serwera podczas pobierania zgłoszeń.",
+    );
+  }
+};
+
+// Zgłoszenia zalogowanego mieszkańca — „moje zgłoszenia".
+export const getMyZgloszenia = async (
+  req: AuthenticatedRequest,
+  res: Response,
+) => {
+  try {
+    const zgloszenia = await zgloszenieService.listMyZgloszenia(
+      req.user!.userId,
+    );
+    return SUCCESS(res, "Twoje zgłoszenia", { zgloszenia });
+  } catch {
+    return SERVER_ERROR(
+      res,
+      "Wystąpił błąd serwera podczas pobierania zgłoszeń.",
+    );
+  }
+};
+
+// Zlecenia wykonawcy — zgłoszenia przypisane do jego firmy.
+export const getZlecone = async (
+  req: AuthenticatedRequest,
+  res: Response,
+) => {
+  try {
+    const zgloszenia = await zgloszenieService.listZlecone(
+      req.user!.wykonawcaId ?? -1,
+    );
+    return SUCCESS(res, "Zlecone naprawy", { zgloszenia });
+  } catch {
+    return SERVER_ERROR(
+      res,
+      "Wystąpił błąd serwera podczas pobierania zleceń.",
+    );
+  }
+};
+
+// Wykonawca zmienia status TYLKO zgłoszeń przypisanych do swojej firmy.
+export const updateStatusByContractor = async (
+  req: AuthenticatedRequest,
+  res: Response,
+) => {
+  try {
+    const id = parseId(req.params.id);
+    if (id === null) return BAD_REQUEST(res, "Niepoprawne id zgłoszenia.");
+
+    const parsed = statusSchema.safeParse(req.body);
+    if (!parsed.success) return MISSING_BODY_FIELDS(res, parsed.error.issues);
+
+    const existing = await zgloszenieService.findZgloszenieById(id);
+    if (!existing) return NOT_FOUND(res, "Nie znaleziono zgłoszenia.");
+    if (existing.contractorId !== req.user!.wykonawcaId)
+      return FORBIDDEN(res, "To zgłoszenie nie jest przypisane do Ciebie.");
+
+    const zgloszenie = await zgloszenieService.updateZgloszenie(id, {
+      status: parsed.data.status,
+    });
+    return SUCCESS(res, "Status zaktualizowany.", { zgloszenie });
+  } catch {
+    return SERVER_ERROR(
+      res,
+      "Wystąpił błąd serwera podczas aktualizacji statusu.",
+    );
+  }
+};
+
+// Lookup gościa po ID + email — publiczny sposób sprawdzenia statusu własnego
+// zgłoszenia bez logowania. Wymaga obu pól (ochrona przed enumeracją).
+export const lookupZgloszenie = async (
+  req: AuthenticatedRequest,
+  res: Response,
+) => {
+  try {
+    const parsed = lookupSchema.safeParse(req.query);
+    if (!parsed.success) return MISSING_QUERY_PARAMS(res, parsed.error.issues);
+
+    const zgloszenie = await zgloszenieService.findZgloszenieByIdAndEmail(
+      parsed.data.id,
+      parsed.data.email,
+    );
+    if (!zgloszenie)
+      return NOT_FOUND(
+        res,
+        "Nie znaleziono zgłoszenia o podanym numerze i adresie e-mail.",
+      );
+
+    return SUCCESS(res, "Zgłoszenie", { zgloszenie });
+  } catch {
+    return SERVER_ERROR(
+      res,
+      "Wystąpił błąd serwera podczas wyszukiwania zgłoszenia.",
     );
   }
 };

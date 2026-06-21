@@ -4,8 +4,16 @@ import { registerSchema, loginSchema } from "../routes/auth/auth.controller";
 import {
   createSchema,
   updateSchema,
+  lookupSchema,
+  statusSchema,
 } from "../routes/zgloszenie/zgloszenie.controller";
 import { updateUserSchema } from "../routes/user/user.controller";
+import { createNaprawaSchema } from "../routes/naprawa/naprawa.controller";
+import { gminaSchema } from "../routes/gmina/gmina.controller";
+import {
+  createWykonawcaSchema,
+  updateWykonawcaSchema,
+} from "../routes/wykonawca/wykonawca.controller";
 
 /**
  * Specyfikacja OpenAPI generowana z tych samych schematów Zod, które walidują
@@ -99,6 +107,19 @@ const zdjecie = z
   })
   .meta({ id: "Zdjecie" });
 
+const naprawa = z
+  .object({
+    id: z.number(),
+    zadanieId: z.number(),
+    contractorId: z.number(),
+    description: z.string(),
+    completedAt: z.string(),
+    zdjecia: z
+      .array(z.object({ id: z.number(), filePath: z.string() }))
+      .optional(),
+  })
+  .meta({ id: "Naprawa" });
+
 // lat/lng to Decimal w bazie — Prisma serializuje je jako string w JSON.
 const zgloszenie = z
   .object({
@@ -118,6 +139,8 @@ const zgloszenie = z
     createdAt: z.string(),
     updatedAt: z.string(),
     zdjecia: z.array(zdjecie).optional(),
+    gmina: z.object({ name: z.string() }).nullable().optional(),
+    naprawy: z.array(naprawa).optional(),
   })
   .meta({ id: "Zgloszenie" });
 
@@ -343,6 +366,75 @@ export const openApiDocument = createDocument({
           "500": jsonError("Błąd serwera"),
         },
       },
+      post: {
+        tags: ["Gminy"],
+        summary: "Utworzenie gminy (tylko superadmin)",
+        security: [{ bearerAuth: [] }],
+        requestBody: {
+          content: { "application/json": { schema: gminaSchema } },
+        },
+        responses: {
+          "201": {
+            description: "Gmina utworzona",
+            content: {
+              "application/json": {
+                schema: createdEnvelope(z.object({ gmina })),
+              },
+            },
+          },
+          "400": jsonError("Błąd walidacji", validationErrorEnvelope),
+          "401": jsonError("Brak tokena"),
+          "403": jsonError("Wymagane uprawnienia superadmina"),
+        },
+      },
+    },
+    "/gminy/{id}": {
+      patch: {
+        tags: ["Gminy"],
+        summary: "Zmiana nazwy gminy (tylko superadmin)",
+        security: [{ bearerAuth: [] }],
+        requestParams: idParam,
+        requestBody: {
+          content: { "application/json": { schema: gminaSchema } },
+        },
+        responses: {
+          "200": {
+            description: "Gmina zaktualizowana",
+            content: {
+              "application/json": {
+                schema: successEnvelope({ gmina }),
+              },
+            },
+          },
+          "400": jsonError("Błąd walidacji / niepoprawne id", validationErrorEnvelope),
+          "401": jsonError("Brak tokena"),
+          "403": jsonError("Wymagane uprawnienia superadmina"),
+          "404": jsonError("Nie znaleziono gminy"),
+        },
+      },
+      delete: {
+        tags: ["Gminy"],
+        summary: "Usunięcie gminy (tylko superadmin)",
+        security: [{ bearerAuth: [] }],
+        requestParams: idParam,
+        responses: {
+          "200": {
+            description: "Gmina usunięta",
+            content: {
+              "application/json": {
+                schema: z.object({
+                  success: z.literal(true),
+                  msg: z.string(),
+                }),
+              },
+            },
+          },
+          "401": jsonError("Brak tokena"),
+          "403": jsonError("Wymagane uprawnienia superadmina"),
+          "404": jsonError("Nie znaleziono gminy"),
+          "409": jsonError("Gmina w użyciu — nie można usunąć"),
+        },
+      },
     },
     "/wykonawcy": {
       get: {
@@ -360,6 +452,111 @@ export const openApiDocument = createDocument({
           },
           "401": jsonError("Brak tokena"),
           "403": jsonError("Wymagane uprawnienia urzędnika lub superadmina"),
+          "500": jsonError("Błąd serwera"),
+        },
+      },
+      post: {
+        tags: ["Wykonawcy"],
+        summary: "Utworzenie wykonawcy (tylko superadmin)",
+        security: [{ bearerAuth: [] }],
+        requestBody: {
+          content: { "application/json": { schema: createWykonawcaSchema } },
+        },
+        responses: {
+          "201": {
+            description: "Wykonawca utworzony",
+            content: {
+              "application/json": {
+                schema: createdEnvelope(z.object({ wykonawca })),
+              },
+            },
+          },
+          "400": jsonError("Błąd walidacji / gmina nie istnieje", validationErrorEnvelope),
+          "401": jsonError("Brak tokena"),
+          "403": jsonError("Wymagane uprawnienia superadmina"),
+        },
+      },
+    },
+    "/wykonawcy/{id}": {
+      patch: {
+        tags: ["Wykonawcy"],
+        summary: "Aktualizacja wykonawcy (tylko superadmin)",
+        security: [{ bearerAuth: [] }],
+        requestParams: idParam,
+        requestBody: {
+          content: { "application/json": { schema: updateWykonawcaSchema } },
+        },
+        responses: {
+          "200": {
+            description: "Wykonawca zaktualizowany",
+            content: {
+              "application/json": {
+                schema: successEnvelope({ wykonawca }),
+              },
+            },
+          },
+          "400": jsonError("Błąd walidacji / niepoprawne id", validationErrorEnvelope),
+          "401": jsonError("Brak tokena"),
+          "403": jsonError("Wymagane uprawnienia superadmina"),
+          "404": jsonError("Nie znaleziono wykonawcy"),
+        },
+      },
+      delete: {
+        tags: ["Wykonawcy"],
+        summary: "Usunięcie wykonawcy (tylko superadmin)",
+        security: [{ bearerAuth: [] }],
+        requestParams: idParam,
+        responses: {
+          "200": {
+            description: "Wykonawca usunięty",
+            content: {
+              "application/json": {
+                schema: z.object({
+                  success: z.literal(true),
+                  msg: z.string(),
+                }),
+              },
+            },
+          },
+          "401": jsonError("Brak tokena"),
+          "403": jsonError("Wymagane uprawnienia superadmina"),
+          "404": jsonError("Nie znaleziono wykonawcy"),
+          "409": jsonError("Wykonawca w użyciu — nie można usunąć"),
+        },
+      },
+    },
+    "/naprawy": {
+      post: {
+        tags: ["Naprawy"],
+        summary: "Zapis naprawy przez wykonawcę (multipart/form-data)",
+        description:
+          "Dodaje naprawę ze zdjęciami po naprawie do przypisanego zlecenia i ustawia status zgłoszenia na Zakończone. Wymaga 1–5 zdjęć w polu `zdjecia`.",
+        security: [{ bearerAuth: [] }],
+        requestBody: {
+          content: {
+            "multipart/form-data": {
+              schema: createNaprawaSchema.extend({
+                zdjecia: z
+                  .array(z.string().meta({ format: "binary" }))
+                  .min(1)
+                  .max(5),
+              }),
+            },
+          },
+        },
+        responses: {
+          "201": {
+            description: "Naprawa zapisana",
+            content: {
+              "application/json": {
+                schema: createdEnvelope(z.object({ naprawa })),
+              },
+            },
+          },
+          "400": jsonError("Błąd walidacji / brak zdjęć", validationErrorEnvelope),
+          "401": jsonError("Brak tokena"),
+          "403": jsonError("Zlecenie nie przypisane do wykonawcy / brak roli"),
+          "404": jsonError("Nie znaleziono zgłoszenia"),
           "500": jsonError("Błąd serwera"),
         },
       },
@@ -441,6 +638,97 @@ export const openApiDocument = createDocument({
               },
             },
           },
+          "500": jsonError("Błąd serwera"),
+        },
+      },
+    },
+    "/zgloszenia/moje": {
+      get: {
+        tags: ["Zgłoszenia"],
+        summary: "Zgłoszenia zalogowanego mieszkańca",
+        description: "Zwraca zgłoszenia powiązane z kontem (po userId).",
+        security: [{ bearerAuth: [] }],
+        responses: {
+          "200": {
+            description: "Twoje zgłoszenia",
+            content: {
+              "application/json": {
+                schema: successEnvelope({ zgloszenia: z.array(zgloszenie) }),
+              },
+            },
+          },
+          "401": jsonError("Brak tokena"),
+          "403": jsonError("Token niepoprawny lub wygasł"),
+          "500": jsonError("Błąd serwera"),
+        },
+      },
+    },
+    "/zgloszenia/zlecone": {
+      get: {
+        tags: ["Zgłoszenia"],
+        summary: "Zlecenia wykonawcy (zgłoszenia przypisane do jego firmy)",
+        security: [{ bearerAuth: [] }],
+        responses: {
+          "200": {
+            description: "Lista zleceń wraz z naprawami",
+            content: {
+              "application/json": {
+                schema: successEnvelope({ zgloszenia: z.array(zgloszenie) }),
+              },
+            },
+          },
+          "401": jsonError("Brak tokena"),
+          "403": jsonError("Wymagana rola wykonawcy"),
+          "500": jsonError("Błąd serwera"),
+        },
+      },
+    },
+    "/zgloszenia/{id}/status": {
+      patch: {
+        tags: ["Zgłoszenia"],
+        summary: "Zmiana statusu zlecenia przez wykonawcę",
+        description:
+          "Dozwolone tylko dla zgłoszeń przypisanych do firmy wykonawcy.",
+        security: [{ bearerAuth: [] }],
+        requestParams: idParam,
+        requestBody: {
+          content: { "application/json": { schema: statusSchema } },
+        },
+        responses: {
+          "200": {
+            description: "Status zaktualizowany",
+            content: {
+              "application/json": {
+                schema: successEnvelope({ zgloszenie }),
+              },
+            },
+          },
+          "400": jsonError("Błąd walidacji / niepoprawne id", validationErrorEnvelope),
+          "401": jsonError("Brak tokena"),
+          "403": jsonError("Zgłoszenie nie jest przypisane do wykonawcy"),
+          "404": jsonError("Nie znaleziono zgłoszenia"),
+          "500": jsonError("Błąd serwera"),
+        },
+      },
+    },
+    "/zgloszenia/lookup": {
+      get: {
+        tags: ["Zgłoszenia"],
+        summary: "Sprawdzenie statusu zgłoszenia gościa (ID + email)",
+        description:
+          "Publiczne. Zwraca zgłoszenie tylko gdy podane `id` i `email` pasują do siebie (ochrona przed enumeracją).",
+        requestParams: { query: lookupSchema },
+        responses: {
+          "200": {
+            description: "Zgłoszenie",
+            content: {
+              "application/json": {
+                schema: successEnvelope({ zgloszenie }),
+              },
+            },
+          },
+          "400": jsonError("Brak/niepoprawne parametry", validationErrorEnvelope),
+          "404": jsonError("Nie znaleziono zgłoszenia"),
           "500": jsonError("Błąd serwera"),
         },
       },

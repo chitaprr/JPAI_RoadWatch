@@ -2,11 +2,22 @@ import { useState } from "react";
 import Navbar from "../Navbar";
 import UsersAdmin from "./UsersAdmin";
 import ZgloszeniaAdmin from "./ZgloszeniaAdmin";
+import GminyAdmin from "./GminyAdmin";
+import WykonawcyAdmin from "./WykonawcyAdmin";
 
 const TABS = [
   { key: "users", label: "Użytkownicy" },
   { key: "zgloszenia", label: "Zgłoszenia" },
+  { key: "gminy", label: "Gminy" },
+  { key: "wykonawcy", label: "Wykonawcy" },
 ];
+
+const PANELS = {
+  users: UsersAdmin,
+  zgloszenia: ZgloszeniaAdmin,
+  gminy: GminyAdmin,
+  wykonawcy: WykonawcyAdmin,
+};
 
 // Panel superadmina: zakładki przełączane lokalnym stanem (bez osobnych tras).
 function AdminLayout() {
@@ -50,7 +61,10 @@ function AdminLayout() {
           ))}
         </div>
 
-        {tab === "users" ? <UsersAdmin /> : <ZgloszeniaAdmin />}
+        {(() => {
+          const Panel = PANELS[tab];
+          return <Panel />;
+        })()}
       </div>
     </div>
   );

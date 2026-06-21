@@ -61,6 +61,15 @@ function Navbar() {
           </button>
         )}
 
+        {location.pathname !== "/moje-zgloszenia" && (
+          <button
+            onClick={() => navigate("/moje-zgloszenia")}
+            style={navBtn("#0d9488")}
+          >
+            Moje zgłoszenia
+          </button>
+        )}
+
         {loggedIn ? (
           <>
             {user?.isSuperadmin && location.pathname !== "/admin" && (
@@ -78,6 +87,15 @@ function Navbar() {
                   style={navBtn("#0891b2")}
                 >
                   Panel urzędnika
+                </button>
+              )}
+            {(user?.role === "WYKONAWCA" || user?.isSuperadmin) &&
+              location.pathname !== "/wykonawca" && (
+                <button
+                  onClick={() => navigate("/wykonawca")}
+                  style={navBtn("#ea580c")}
+                >
+                  Panel wykonawcy
                 </button>
               )}
             <span style={{ color: "#cbd5e1", fontSize: "14px" }}>
