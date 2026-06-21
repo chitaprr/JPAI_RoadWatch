@@ -92,7 +92,8 @@ function GminaUsers() {
       await api.patch(`/users/${row.id}`, {
         name: row.name,
         role: row.role,
-        wykonawcaId: row.role === "WYKONAWCA" ? (row.wykonawcaId ?? null) : null,
+        wykonawcaId:
+          row.role === "WYKONAWCA" ? (row.wykonawcaId ?? null) : null,
       });
       await load();
       setInfo(`Zapisano użytkownika #${row.id}.`);
@@ -194,8 +195,8 @@ function GminaUsers() {
             {rows.length === 0 && (
               <tr>
                 <td style={td} colSpan={6}>
-                  Brak użytkowników w Twojej gminie. Wyszukaj konto po email, aby
-                  nadać mu rolę.
+                  Brak użytkowników w Twojej gminie. Wyszukaj konto po email,
+                  aby nadać mu rolę.
                 </td>
               </tr>
             )}

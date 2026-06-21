@@ -9,7 +9,7 @@ const COLUMNS = [
   ["Opis", (r) => r.description],
   ["Status", (r) => r.status],
   ["Priorytet", (r) => r.priority],
-  ["Wykonawca", (r) => r.wykonawcaName ?? (r.contractorId ?? "")],
+  ["Wykonawca", (r) => r.wykonawcaName ?? r.contractorId ?? ""],
   ["Termin", (r) => (r.deadline ? r.deadline.slice(0, 10) : "")],
   ["Utworzono", (r) => (r.createdAt ? r.createdAt.slice(0, 10) : "")],
   ["Email", (r) => r.email ?? ""],
@@ -38,7 +38,10 @@ export const exportCsv = (rows, filename = "zgloszenia.csv") => {
   );
   // BOM dla poprawnych polskich znaków w Excelu.
   const csv = "﻿" + [header, ...lines].join("\r\n");
-  triggerDownload(new Blob([csv], { type: "text/csv;charset=utf-8" }), filename);
+  triggerDownload(
+    new Blob([csv], { type: "text/csv;charset=utf-8" }),
+    filename,
+  );
 };
 
 const escapeHtml = (value) =>
@@ -58,7 +61,8 @@ export const exportPdf = (rows, title = "Zgłoszenia") => {
 
   const win = window.open("", "_blank");
   if (!win) return; // popup zablokowany
-  win.document.write(`<!doctype html><html lang="pl"><head><meta charset="utf-8">
+  win.document
+    .write(`<!doctype html><html lang="pl"><head><meta charset="utf-8">
 <title>${escapeHtml(title)}</title>
 <style>
   body { font-family: Arial, sans-serif; padding: 20px; }

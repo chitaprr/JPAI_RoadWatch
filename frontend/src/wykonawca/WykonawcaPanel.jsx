@@ -10,7 +10,12 @@ const Thumb = ({ filePath, alt }) => (
   <img
     src={`${API_ORIGIN}${filePath}`}
     alt={alt}
-    style={{ width: "90px", height: "90px", objectFit: "cover", borderRadius: "4px" }}
+    style={{
+      width: "90px",
+      height: "90px",
+      objectFit: "cover",
+      borderRadius: "4px",
+    }}
   />
 );
 
@@ -103,7 +108,9 @@ function ZlecenieCard({ z, onChanged }) {
         background: "#fff",
       }}
     >
-      <div style={{ display: "flex", justifyContent: "space-between", gap: "8px" }}>
+      <div
+        style={{ display: "flex", justifyContent: "space-between", gap: "8px" }}
+      >
         <strong style={{ fontSize: "16px" }}>
           #{z.id} {z.title}
         </strong>
@@ -132,7 +139,9 @@ function ZlecenieCard({ z, onChanged }) {
 
       {z.zdjecia?.length > 0 && (
         <div style={{ marginBottom: "10px" }}>
-          <div style={{ fontSize: "13px", color: "#6b7280", marginBottom: "4px" }}>
+          <div
+            style={{ fontSize: "13px", color: "#6b7280", marginBottom: "4px" }}
+          >
             Zdjęcia zgłoszenia:
           </div>
           <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
@@ -152,7 +161,13 @@ function ZlecenieCard({ z, onChanged }) {
             paddingTop: "10px",
           }}
         >
-          <div style={{ fontSize: "13px", fontWeight: "bold", marginBottom: "6px" }}>
+          <div
+            style={{
+              fontSize: "13px",
+              fontWeight: "bold",
+              marginBottom: "6px",
+            }}
+          >
             Naprawy:
           </div>
           {z.naprawy.map((n) => (
@@ -163,7 +178,14 @@ function ZlecenieCard({ z, onChanged }) {
                   {new Date(n.completedAt).toLocaleDateString("pl-PL")}
                 </span>
               </div>
-              <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", marginTop: "4px" }}>
+              <div
+                style={{
+                  display: "flex",
+                  gap: "8px",
+                  flexWrap: "wrap",
+                  marginTop: "4px",
+                }}
+              >
                 {n.zdjecia?.map((zd) => (
                   <Thumb key={zd.id} filePath={zd.filePath} alt="Po naprawie" />
                 ))}
@@ -214,7 +236,9 @@ function ZlecenieCard({ z, onChanged }) {
                 </div>
               ))
             ) : (
-              <p style={{ fontSize: "13px", color: "#6b7280", margin: "4px 0" }}>
+              <p
+                style={{ fontSize: "13px", color: "#6b7280", margin: "4px 0" }}
+              >
                 Brak komentarzy.
               </p>
             )}
@@ -238,7 +262,13 @@ function ZlecenieCard({ z, onChanged }) {
 
       {/* Akcje — tylko dla niezakończonych */}
       {!done && (
-        <div style={{ borderTop: "1px solid #e5e7eb", marginTop: "10px", paddingTop: "12px" }}>
+        <div
+          style={{
+            borderTop: "1px solid #e5e7eb",
+            marginTop: "10px",
+            paddingTop: "12px",
+          }}
+        >
           {z.status !== "W realizacji" && (
             <button
               onClick={() => setStatus("W realizacji")}
@@ -257,7 +287,10 @@ function ZlecenieCard({ z, onChanged }) {
             </button>
           )}
 
-          <form onSubmit={saveNaprawa} style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+          <form
+            onSubmit={saveNaprawa}
+            style={{ display: "flex", flexDirection: "column", gap: "8px" }}
+          >
             <textarea
               placeholder="Opis wykonanej naprawy…"
               value={description}
@@ -269,10 +302,14 @@ function ZlecenieCard({ z, onChanged }) {
               type="file"
               accept="image/*"
               multiple
-              onChange={(e) => setPhotos(Array.from(e.target.files).slice(0, 5))}
+              onChange={(e) =>
+                setPhotos(Array.from(e.target.files).slice(0, 5))
+              }
             />
             {photos.length > 0 && (
-              <small style={{ color: "#6b7280" }}>Wybrano {photos.length} zdjęć.</small>
+              <small style={{ color: "#6b7280" }}>
+                Wybrano {photos.length} zdjęć.
+              </small>
             )}
             <button
               type="submit"
@@ -330,7 +367,9 @@ function WykonawcaPanel() {
           zdjęcia po naprawie.
         </p>
 
-        {error && <p style={{ color: "#b91c1c", marginBottom: "12px" }}>{error}</p>}
+        {error && (
+          <p style={{ color: "#b91c1c", marginBottom: "12px" }}>{error}</p>
+        )}
 
         {loading ? (
           <p>Ładowanie…</p>

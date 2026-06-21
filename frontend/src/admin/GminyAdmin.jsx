@@ -6,7 +6,12 @@ const td = {
   borderBottom: "1px solid #e5e7eb",
   fontSize: "14px",
 };
-const th = { ...td, textAlign: "left", fontWeight: "bold", background: "#f9fafb" };
+const th = {
+  ...td,
+  textAlign: "left",
+  fontWeight: "bold",
+  background: "#f9fafb",
+};
 
 // CRUD gmin (superadmin). Usuwanie blokowane przez backend (409), gdy gmina jest
 // w użyciu (urzędnicy / wykonawcy / zgłoszenia).
@@ -74,9 +79,14 @@ function GminyAdmin() {
 
   return (
     <div>
-      {error && <p style={{ color: "#b91c1c", marginBottom: "12px" }}>{error}</p>}
+      {error && (
+        <p style={{ color: "#b91c1c", marginBottom: "12px" }}>{error}</p>
+      )}
 
-      <form onSubmit={add} style={{ display: "flex", gap: "8px", marginBottom: "16px" }}>
+      <form
+        onSubmit={add}
+        style={{ display: "flex", gap: "8px", marginBottom: "16px" }}
+      >
         <input
           placeholder="Nazwa nowej gminy"
           value={newName}
@@ -119,10 +129,16 @@ function GminyAdmin() {
                 />
               </td>
               <td style={td}>
-                <button onClick={() => save(r)} style={{ marginRight: "6px", cursor: "pointer" }}>
+                <button
+                  onClick={() => save(r)}
+                  style={{ marginRight: "6px", cursor: "pointer" }}
+                >
                   Zapisz
                 </button>
-                <button onClick={() => remove(r.id)} style={{ cursor: "pointer", color: "#b91c1c" }}>
+                <button
+                  onClick={() => remove(r.id)}
+                  style={{ cursor: "pointer", color: "#b91c1c" }}
+                >
                   Usuń
                 </button>
               </td>

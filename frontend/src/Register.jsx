@@ -16,7 +16,7 @@ function Register() {
   useEffect(() => {
     api
       .get("/gminy")
-      // eslint-disable-next-line react-hooks/set-state-in-effect
+       
       .then((res) => setGminy(res.data.gminy ?? []))
       .catch(() => {});
   }, []);

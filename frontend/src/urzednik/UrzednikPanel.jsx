@@ -263,7 +263,14 @@ function UrzednikPanel() {
           ) : (
             <span style={{ color: "#6b7280" }}>Ładowanie…</span>
           )}
-          <span style={{ marginLeft: "auto", display: "flex", gap: "6px", alignItems: "center" }}>
+          <span
+            style={{
+              marginLeft: "auto",
+              display: "flex",
+              gap: "6px",
+              alignItems: "center",
+            }}
+          >
             <label style={{ fontSize: "13px" }}>od</label>
             <input
               type="date"
@@ -478,31 +485,56 @@ function UrzednikPanel() {
               </h2>
               <button
                 onClick={() => setDetail(null)}
-                style={{ cursor: "pointer", border: "none", background: "transparent", fontSize: "20px" }}
+                style={{
+                  cursor: "pointer",
+                  border: "none",
+                  background: "transparent",
+                  fontSize: "20px",
+                }}
               >
                 ✕
               </button>
             </div>
 
-            <p style={{ color: "#6b7280", fontSize: "13px", margin: "4px 0 12px" }}>
+            <p
+              style={{
+                color: "#6b7280",
+                fontSize: "13px",
+                margin: "4px 0 12px",
+              }}
+            >
               Status: {detail.status}
               {detail.gmina?.name && ` · Gmina: ${detail.gmina.name}`}
               {detail.email && ` · Zgłaszający: ${detail.email}`}
             </p>
 
-            <h3 style={{ fontSize: "15px", margin: "0 0 4px" }}>Opis usterki</h3>
+            <h3 style={{ fontSize: "15px", margin: "0 0 4px" }}>
+              Opis usterki
+            </h3>
             <p style={{ fontSize: "14px", color: "#374151", marginTop: 0 }}>
               {detail.description}
             </p>
 
             {detail.zdjecia?.length > 0 && (
-              <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", marginBottom: "16px" }}>
+              <div
+                style={{
+                  display: "flex",
+                  gap: "8px",
+                  flexWrap: "wrap",
+                  marginBottom: "16px",
+                }}
+              >
                 {detail.zdjecia.map((zd) => (
                   <img
                     key={zd.id}
                     src={`${API_ORIGIN}${zd.filePath}`}
                     alt="Usterka"
-                    style={{ width: "120px", height: "120px", objectFit: "cover", borderRadius: "4px" }}
+                    style={{
+                      width: "120px",
+                      height: "120px",
+                      objectFit: "cover",
+                      borderRadius: "4px",
+                    }}
                   />
                 ))}
               </div>
@@ -525,17 +557,30 @@ function UrzednikPanel() {
                   <div style={{ fontSize: "14px", color: "#374151" }}>
                     {n.description}
                   </div>
-                  <div style={{ fontSize: "12px", color: "#6b7280", marginBottom: "6px" }}>
+                  <div
+                    style={{
+                      fontSize: "12px",
+                      color: "#6b7280",
+                      marginBottom: "6px",
+                    }}
+                  >
                     Zakończono:{" "}
                     {new Date(n.completedAt).toLocaleDateString("pl-PL")}
                   </div>
-                  <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+                  <div
+                    style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}
+                  >
                     {n.zdjecia?.map((zd) => (
                       <img
                         key={zd.id}
                         src={`${API_ORIGIN}${zd.filePath}`}
                         alt="Po naprawie"
-                        style={{ width: "120px", height: "120px", objectFit: "cover", borderRadius: "4px" }}
+                        style={{
+                          width: "120px",
+                          height: "120px",
+                          objectFit: "cover",
+                          borderRadius: "4px",
+                        }}
                       />
                     ))}
                   </div>
@@ -591,7 +636,13 @@ function UrzednikPanel() {
               Historia zmian
             </h3>
             {historia.length > 0 ? (
-              <ul style={{ fontSize: "13px", color: "#374151", paddingLeft: "18px" }}>
+              <ul
+                style={{
+                  fontSize: "13px",
+                  color: "#374151",
+                  paddingLeft: "18px",
+                }}
+              >
                 {historia.map((h) => (
                   <li key={h.id} style={{ marginBottom: "2px" }}>
                     <span style={{ color: "#6b7280" }}>
