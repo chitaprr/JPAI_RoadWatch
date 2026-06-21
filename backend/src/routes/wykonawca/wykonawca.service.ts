@@ -13,6 +13,17 @@ export const listWykonawcy = () =>
     orderBy: { name: "asc" },
   });
 
+// Wykonawcy jednej gminy — dla urzędnika/administratora gminy.
+export const listWykonawcyByGmina = (gminaId: number) =>
+  prisma.wykonawca.findMany({
+    where: { gminaId },
+    select: wykonawcaSelect,
+    orderBy: { name: "asc" },
+  });
+
+export const findWykonawcaById = (id: number) =>
+  prisma.wykonawca.findUnique({ where: { id }, select: wykonawcaSelect });
+
 export const createWykonawca = (data: {
   name: string;
   nip: string;

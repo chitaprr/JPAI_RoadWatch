@@ -117,8 +117,8 @@ export const findZgloszenieByIdAndEmail = (id: number, email: string) =>
 
 // Publiczna lista do mapy — tylko pola potrzebne do pinezek, bez danych
 // kontaktowych (email) i powiązań użytkowników.
-export const listPublicZgloszenia = () =>
-  prisma.zgloszenie.findMany({
+export const listPublicZgloszenia = async () => {
+  const rows = await prisma.zgloszenie.findMany({
     select: {
       id: true,
       title: true,
@@ -129,9 +129,16 @@ export const listPublicZgloszenia = () =>
       priority: true,
       createdAt: true,
       zdjecia: { select: { id: true, filePath: true } },
+      _count: { select: { potwierdzenia: true } },
     },
     orderBy: { createdAt: "desc" },
   });
+  // Spłaszczenie licznika potwierdzeń („+1") do pola confirmations.
+  return rows.map(({ _count, ...z }) => ({
+    ...z,
+    confirmations: _count.potwierdzenia,
+  }));
+};
 
 export const findZgloszenieById = (id: number) =>
   prisma.zgloszenie.findUnique({
@@ -164,3 +171,127 @@ export const updateZgloszenie = (
 
 export const deleteZgloszenie = (id: number) =>
   prisma.zgloszenie.delete({ where: { id } });
+
+// ---- Komentarze (notatki wewnętrzne obsługi) ----
+
+export const listKomentarze = (zgloszenieId: number) =>
+  prisma.komentarz.findMany({
+    where: { zgloszenieId },
+    orderBy: { createdAt: "asc" },
+  });
+
+export const createKomentarz = (data: {
+  zgloszenieId: number;
+  authorId: number | null;
+  authorName: string;
+  content: string;
+}) => prisma.komentarz.create({ data });
+
+// ---- Historia zmian (audit log) ----
+
+export interface AuditEntry {
+  zgloszenieId: number;
+  userId: number | null;
+  userName: string;
+  field: string;
+  oldValue: string | null;
+  newValue: string | null;
+}
+
+export const listHistoria = (zgloszenieId: number) =>
+  prisma.historiaZmian.findMany({
+    where: { zgloszenieId },
+    orderBy: { createdAt: "asc" },
+  });
+
+// Zapis wielu wpisów na raz; pusta lista nie generuje zapytania.
+export const addHistoria = (entries: AuditEntry[]) =>
+  entries.length > 0
+    ? prisma.historiaZmian.createMany({ data: entries })
+    : Promise.resolve();
+
+// ---- Potwierdzenia („+1" cudzego zgłoszenia) ----
+
+// Idempotentne — ponowny „+1" tego samego użytkownika nic nie zmienia.
+export const addPotwierdzenie = (zgloszenieId: number, userId: number) =>
+  prisma.potwierdzenie.upsert({
+    where: { zgloszenieId_userId: { zgloszenieId, userId } },
+    create: { zgloszenieId, userId },
+    update: {},
+  });
+
+export const removePotwierdzenie = (zgloszenieId: number, userId: number) =>
+  prisma.potwierdzenie.deleteMany({ where: { zgloszenieId, userId } });
+
+export const countPotwierdzenia = (zgloszenieId: number) =>
+  prisma.potwierdzenie.count({ where: { zgloszenieId } });
+
+// ---- Statystyki ----
+
+export interface StatystykiFilter {
+  gminaId?: number;
+  from?: Date;
+  to?: Date;
+}
+
+export interface Statystyki {
+  total: number;
+  byStatus: Record<string, number>;
+  // Średni czas realizacji (dni) liczony od utworzenia do pierwszej naprawy.
+  avgResolutionDays: number | null;
+  resolvedCount: number;
+}
+
+const buildWhere = (filter: StatystykiFilter) => {
+  const where: {
+    gminaId?: number;
+    createdAt?: { gte?: Date; lte?: Date };
+  } = {};
+  if (filter.gminaId !== undefined) where.gminaId = filter.gminaId;
+  if (filter.from || filter.to) {
+    where.createdAt = {};
+    if (filter.from) where.createdAt.gte = filter.from;
+    if (filter.to) where.createdAt.lte = filter.to;
+  }
+  return where;
+};
+
+export const getStatystyki = async (
+  filter: StatystykiFilter,
+): Promise<Statystyki> => {
+  const where = buildWhere(filter);
+
+  const rows = await prisma.zgloszenie.findMany({
+    where,
+    select: {
+      status: true,
+      createdAt: true,
+      naprawy: {
+        select: { completedAt: true },
+        orderBy: { completedAt: "asc" },
+        take: 1,
+      },
+    },
+  });
+
+  const byStatus: Record<string, number> = {};
+  let resolvedCount = 0;
+  let totalMs = 0;
+
+  for (const row of rows) {
+    byStatus[row.status] = (byStatus[row.status] ?? 0) + 1;
+    const firstRepair = row.naprawy[0];
+    if (firstRepair) {
+      resolvedCount += 1;
+      totalMs +=
+        firstRepair.completedAt.getTime() - row.createdAt.getTime();
+    }
+  }
+
+  const avgResolutionDays =
+    resolvedCount > 0
+      ? Math.round((totalMs / resolvedCount / 86_400_000) * 10) / 10
+      : null;
+
+  return { total: rows.length, byStatus, avgResolutionDays, resolvedCount };
+};

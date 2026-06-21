@@ -10,6 +10,12 @@ import {
   getZgloszenieById,
   updateZgloszenie,
   deleteZgloszenie,
+  getKomentarze,
+  addKomentarz,
+  getHistoria,
+  getStatystyki,
+  confirmZgloszenie,
+  unconfirmZgloszenie,
 } from "./zgloszenie.controller";
 import {
   authenticateJWT,
@@ -54,6 +60,14 @@ zgloszenieRouter.patch(
   updateStatusByContractor,
 );
 
+// Statystyki — urzędnik (swoja gmina) i superadmin. Przed "/:id".
+zgloszenieRouter.get(
+  "/statystyki",
+  authenticateJWT,
+  requireRole(Rola.URZEDNIK),
+  getStatystyki,
+);
+
 // Triaż — tylko urzędnik (scoping do swojej gminy w kontrolerze) i superadmin.
 zgloszenieRouter.get(
   "/",
@@ -67,6 +81,16 @@ zgloszenieRouter.get(
   requireRole(Rola.URZEDNIK),
   getZgloszenieById,
 );
+
+// Komentarze i historia — obsługa z dostępem do zgłoszenia (sprawdzane w
+// kontrolerze: urzędnik/administrator gminy, przypisany wykonawca, superadmin).
+zgloszenieRouter.get("/:id/komentarze", authenticateJWT, getKomentarze);
+zgloszenieRouter.post("/:id/komentarze", authenticateJWT, addKomentarz);
+zgloszenieRouter.get("/:id/historia", authenticateJWT, getHistoria);
+
+// „+1" / potwierdzenie cudzego zgłoszenia — każdy zalogowany użytkownik.
+zgloszenieRouter.post("/:id/potwierdz", authenticateJWT, confirmZgloszenie);
+zgloszenieRouter.delete("/:id/potwierdz", authenticateJWT, unconfirmZgloszenie);
 zgloszenieRouter.patch(
   "/:id",
   authenticateJWT,

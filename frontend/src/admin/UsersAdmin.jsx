@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import api from "../services/api";
 
-const ROLES = ["MIESZKANIEC", "URZEDNIK", "WYKONAWCA"];
+const ROLES = ["MIESZKANIEC", "URZEDNIK", "WYKONAWCA", "ADMIN"];
 
 const td = {
   padding: "8px",
@@ -63,6 +63,7 @@ function UsersAdmin() {
         role: row.role,
         isSuperadmin: row.isSuperadmin,
         urzednikGminaId: row.urzednikGminaId ?? null,
+        adminGminaId: row.adminGminaId ?? null,
         wykonawcaId: row.wykonawcaId ?? null,
       });
       await load();
@@ -101,6 +102,7 @@ function UsersAdmin() {
               <th style={th}>Imię</th>
               <th style={th}>Rola</th>
               <th style={th}>Gmina (urzędnik)</th>
+              <th style={th}>Gmina (admin)</th>
               <th style={th}>Wykonawca</th>
               <th style={th}>Superadmin</th>
               <th style={th}>Akcje</th>
@@ -139,6 +141,21 @@ function UsersAdmin() {
                         "urzednikGminaId",
                         numOrNull(e.target.value),
                       )
+                    }
+                  >
+                    <option value="">—</option>
+                    {gminy.map((g) => (
+                      <option key={g.id} value={g.id}>
+                        {g.name}
+                      </option>
+                    ))}
+                  </select>
+                </td>
+                <td style={td}>
+                  <select
+                    value={r.adminGminaId ?? ""}
+                    onChange={(e) =>
+                      patchRow(r.id, "adminGminaId", numOrNull(e.target.value))
                     }
                   >
                     <option value="">—</option>

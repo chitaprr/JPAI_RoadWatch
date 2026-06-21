@@ -24,11 +24,14 @@ if (isMobile) {
     registerSW({ immediate: true }),
   );
 } else if ("serviceWorker" in navigator) {
-  // PC: wyrejestruj ewentualnego SW z wcześniejszej wizyty i wyczyść cache,
-  // żeby nie serwował przestarzałej wersji aplikacji.
-  navigator.serviceWorker
-    .getRegistrations()
-    .then((regs) => regs.forEach((r) => r.unregister()));
+  // PC: wyrejestruj SW aplikacji (PWA, scope "/") z wcześniejszej wizyty i
+  // wyczyść cache, żeby nie serwował przestarzałej wersji. UWAGA: zachowujemy
+  // dedykowany SW powiadomień push (scope ".../push/").
+  navigator.serviceWorker.getRegistrations().then((regs) =>
+    regs.forEach((r) => {
+      if (!r.scope.endsWith("/push/")) r.unregister();
+    }),
+  );
   if (window.caches) {
     caches.keys().then((keys) => keys.forEach((k) => caches.delete(k)));
   }

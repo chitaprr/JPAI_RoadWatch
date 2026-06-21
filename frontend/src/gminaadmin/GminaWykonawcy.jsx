@@ -13,20 +13,23 @@ const th = {
   background: "#f9fafb",
 };
 
-// CRUD gmin (superadmin). Usuwanie blokowane przez backend (409), gdy gmina jest
-// w użyciu (urzędnicy / wykonawcy / zgłoszenia).
-function GminyAdmin() {
+const EMPTY = { name: "", nip: "" };
+
+// CRUD wykonawców w obrębie gminy administratora. Gmina jest dopisywana przez
+// backend (z konta administratora) — administrator jej nie wybiera.
+function GminaWykonawcy() {
   const [rows, setRows] = useState([]);
-  const [newName, setNewName] = useState("");
+  const [form, setForm] = useState(EMPTY);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
 
   const load = async () => {
+    setLoading(true);
     try {
-      const res = await api.get("/gminy");
-      setRows(res.data.gminy ?? []);
-    } catch {
-      setError("Nie udało się pobrać gmin.");
+      const w = await api.get("/wykonawcy");
+      setRows(w.data.wykonawcy ?? []);
+    } catch (e) {
+      setError(e.response?.data?.msg ?? "Nie udało się pobrać wykonawców.");
     } finally {
       setLoading(false);
     }
@@ -43,35 +46,37 @@ function GminyAdmin() {
     e.preventDefault();
     setError("");
     try {
-      await api.post("/gminy", { name: newName });
-      setNewName("");
+      await api.post("/wykonawcy", { name: form.name, nip: form.nip });
+      setForm(EMPTY);
       await load();
     } catch (e) {
-      setError(errMsg(e, "Nie udało się dodać gminy."));
+      setError(errMsg(e, "Nie udało się dodać wykonawcy."));
     }
   };
 
-  const patchRow = (id, name) =>
-    setRows((prev) => prev.map((r) => (r.id === id ? { ...r, name } : r)));
+  const patchRow = (id, field, value) =>
+    setRows((prev) =>
+      prev.map((r) => (r.id === id ? { ...r, [field]: value } : r)),
+    );
 
   const save = async (row) => {
     setError("");
     try {
-      await api.patch(`/gminy/${row.id}`, { name: row.name });
+      await api.patch(`/wykonawcy/${row.id}`, { name: row.name, nip: row.nip });
       await load();
     } catch (e) {
-      setError(errMsg(e, `Nie udało się zapisać gminy #${row.id}.`));
+      setError(errMsg(e, `Nie udało się zapisać wykonawcy #${row.id}.`));
     }
   };
 
   const remove = async (id) => {
-    if (!window.confirm(`Usunąć gminę #${id}?`)) return;
+    if (!window.confirm(`Usunąć wykonawcę #${id}?`)) return;
     setError("");
     try {
-      await api.delete(`/gminy/${id}`);
+      await api.delete(`/wykonawcy/${id}`);
       setRows((prev) => prev.filter((r) => r.id !== id));
     } catch (e) {
-      setError(errMsg(e, `Nie udało się usunąć gminy #${id}.`));
+      setError(errMsg(e, `Nie udało się usunąć wykonawcy #${id}.`));
     }
   };
 
@@ -85,14 +90,26 @@ function GminyAdmin() {
 
       <form
         onSubmit={add}
-        style={{ display: "flex", gap: "8px", marginBottom: "16px" }}
+        style={{
+          display: "flex",
+          gap: "8px",
+          marginBottom: "16px",
+          flexWrap: "wrap",
+        }}
       >
         <input
-          placeholder="Nazwa nowej gminy"
-          value={newName}
-          onChange={(e) => setNewName(e.target.value)}
+          placeholder="Nazwa firmy"
+          value={form.name}
+          onChange={(e) => setForm({ ...form, name: e.target.value })}
           required
-          style={{ width: "240px" }}
+          style={{ width: "200px" }}
+        />
+        <input
+          placeholder="NIP"
+          value={form.nip}
+          onChange={(e) => setForm({ ...form, nip: e.target.value })}
+          required
+          style={{ width: "140px" }}
         />
         <button
           type="submit"
@@ -105,7 +122,7 @@ function GminyAdmin() {
             borderRadius: "5px",
           }}
         >
-          Dodaj gminę
+          Dodaj wykonawcę
         </button>
       </form>
 
@@ -114,6 +131,7 @@ function GminyAdmin() {
           <tr>
             <th style={th}>ID</th>
             <th style={th}>Nazwa</th>
+            <th style={th}>NIP</th>
             <th style={th}>Akcje</th>
           </tr>
         </thead>
@@ -124,8 +142,15 @@ function GminyAdmin() {
               <td style={td}>
                 <input
                   value={r.name ?? ""}
-                  onChange={(e) => patchRow(r.id, e.target.value)}
-                  style={{ width: "240px" }}
+                  onChange={(e) => patchRow(r.id, "name", e.target.value)}
+                  style={{ width: "180px" }}
+                />
+              </td>
+              <td style={td}>
+                <input
+                  value={r.nip ?? ""}
+                  onChange={(e) => patchRow(r.id, "nip", e.target.value)}
+                  style={{ width: "130px" }}
                 />
               </td>
               <td style={td}>
@@ -144,10 +169,17 @@ function GminyAdmin() {
               </td>
             </tr>
           ))}
+          {rows.length === 0 && (
+            <tr>
+              <td style={td} colSpan={4}>
+                Brak wykonawców w Twojej gminie.
+              </td>
+            </tr>
+          )}
         </tbody>
       </table>
     </div>
   );
 }
 
-export default GminyAdmin;
+export default GminaWykonawcy;

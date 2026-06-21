@@ -6,6 +6,7 @@ import zgloszenieRouter from "./zgloszenie/zgloszenie.router";
 import gminaRouter from "./gmina/gmina.router";
 import wykonawcaRouter from "./wykonawca/wykonawca.router";
 import naprawaRouter from "./naprawa/naprawa.router";
+import pushRouter from "./push/push.router";
 
 const router = Router();
 
@@ -15,6 +16,7 @@ router.use("/zgloszenia", zgloszenieRouter);
 router.use("/gminy", gminaRouter);
 router.use("/wykonawcy", wykonawcaRouter);
 router.use("/naprawy", naprawaRouter);
+router.use("/push", pushRouter);
 
 router.get("/", HelloWorldHandler);
 

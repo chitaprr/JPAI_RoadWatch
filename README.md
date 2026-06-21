@@ -1,4 +1,4 @@
-# JPAI_RoadWatch
+# RoadWatch — Monitoring Infrastruktury Drogowej
 
 Platforma do zgłaszania i obsługi usterek drogowych. Mieszkańcy zgłaszają usterki
 (zdjęcie + lokalizacja na mapie), urzędnicy je triażują i zlecają wykonawcom, którzy

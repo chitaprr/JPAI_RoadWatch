@@ -14,6 +14,7 @@ import { AuthenticatedRequest } from "../../middlewares/authMiddleware";
 import { UPLOAD_DIR, UPLOAD_ROUTE_PREFIX } from "../../middlewares/upload";
 import * as naprawaService from "./naprawa.service";
 import * as zgloszenieService from "../zgloszenie/zgloszenie.service";
+import * as pushService from "../push/push.service";
 
 // zadanieId przychodzi w multipart/form-data (string) -> koercja.
 export const createNaprawaSchema = z.object({
@@ -77,6 +78,24 @@ export const createNaprawa = async (
     await zgloszenieService.updateZgloszenie(parsed.data.zadanieId, {
       status: "Zakończone",
     });
+
+    // Audyt zmiany statusu (jeśli zgłoszenie nie było już zakończone).
+    if (zgloszenie.status !== "Zakończone") {
+      await zgloszenieService.addHistoria([
+        {
+          zgloszenieId: parsed.data.zadanieId,
+          userId: req.user!.userId,
+          userName: req.user!.email,
+          field: "status",
+          oldValue: zgloszenie.status,
+          newValue: "Zakończone",
+        },
+      ]);
+      // Powiadom właściciela zgłoszenia o zakończeniu (best-effort).
+      void pushService
+        .notifyStatusChange(zgloszenie.userId, parsed.data.zadanieId, "Zakończone")
+        .catch(() => {});
+    }
 
     return CREATED(res, "Naprawa została zapisana.", { naprawa });
   } catch {
