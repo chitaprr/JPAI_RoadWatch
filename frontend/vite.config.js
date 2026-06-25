@@ -39,6 +39,9 @@ export default defineConfig({
         ],
       },
       workbox: {
+        // Handlery push importowane do głównego SW — wymagane przez iOS,
+        // który ignoruje zdarzenia push dla SW spoza scope "/".
+        importScripts: ["push-handler.js"],
         // App-shell jest precache'owany automatycznie. Tu tylko runtime cache
         // kafelków mapy OSM, żeby ponowne wejścia działały szybciej/offline.
         runtimeCaching: [

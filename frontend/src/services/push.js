@@ -6,6 +6,12 @@ import { getToken } from "./auth";
 const SW_URL = "/push-sw.js";
 const SW_SCOPE = "/push/";
 
+// iOS dostarcza zdarzenia push wyłącznie do SW kontrolującego zainstalowaną
+// aplikację (scope "/") — push-sw.js na scope "/push/" jest tam ignorowany.
+const isIOS =
+  /iPhone|iPad|iPod/i.test(navigator.userAgent) ||
+  (navigator.maxTouchPoints > 1 && /Macintosh/.test(navigator.userAgent));
+
 const supported = () =>
   "serviceWorker" in navigator &&
   "PushManager" in window &&
@@ -21,8 +27,16 @@ const urlBase64ToUint8Array = (base64String) => {
   return arr;
 };
 
-const getRegistration = () =>
-  navigator.serviceWorker.register(SW_URL, { scope: SW_SCOPE });
+const getRegistration = () => {
+  if (isIOS) {
+    // Na iOS używamy głównego SW PWA (zarejestrowanego przez main.jsx),
+    // bo iOS wymaga, żeby subskrypcja push była powiązana z SW kontrolującym
+    // zainstalowaną aplikację. navigator.serviceWorker.ready zwraca aktywny
+    // SW dla scope bieżącej strony ("/").
+    return navigator.serviceWorker.ready;
+  }
+  return navigator.serviceWorker.register(SW_URL, { scope: SW_SCOPE });
+};
 
 // Pobiera istniejącą subskrypcję lub tworzy nową, po czym zapisuje ją na serwerze.
 const subscribeAndSave = async (publicKey) => {
