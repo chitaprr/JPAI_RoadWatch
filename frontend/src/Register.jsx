@@ -16,7 +16,7 @@ function Register() {
   useEffect(() => {
     api
       .get("/gminy")
-       
+
       .then((res) => setGminy(res.data.gminy ?? []))
       .catch(() => {});
   }, []);
