@@ -7,7 +7,7 @@ on:
       vite_api_url:
         description: "URL backendu wypiekany w bundle frontendu (VITE_API_URL)"
         required: true
-        default: "http://149.156.194.192:8103/"
+        default: "https://roadwatch-api.grochot.pl/"
       release_tag:
         description: "Wersja/tag dla obrazu i GitHub Release (np. v1.2.0). Pusty = bez release."
         required: false

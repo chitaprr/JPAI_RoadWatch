@@ -1,6 +1,8 @@
+import { useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { isLoggedIn, getUser, logout } from "./services/auth";
 import { subscribeToPush } from "./services/push";
+import "./Navbar.css";
 
 // Górny pasek nawigacji. Treść przycisków zależy od stanu zalogowania.
 function Navbar() {
@@ -8,6 +10,12 @@ function Navbar() {
   const location = useLocation();
   const loggedIn = isLoggedIn();
   const user = getUser();
+  const [menuOpen, setMenuOpen] = useState(false);
+
+  const go = (path) => {
+    setMenuOpen(false);
+    navigate(path);
+  };
 
   const handleLogout = () => {
     logout();
@@ -37,6 +45,7 @@ function Navbar() {
         display: "flex",
         alignItems: "center",
         justifyContent: "space-between",
+        flexWrap: "wrap",
         gap: "12px",
         padding: "12px 20px",
         backgroundColor: "#1f2937",
@@ -45,7 +54,7 @@ function Navbar() {
       }}
     >
       <span
-        onClick={() => navigate("/")}
+        onClick={() => go("/")}
         style={{
           color: "white",
           fontWeight: "bold",
@@ -57,19 +66,24 @@ function Navbar() {
         🛣️ RoadWatch
       </span>
 
-      <nav style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+      <button
+        className="navbar-hamburger"
+        onClick={() => setMenuOpen((o) => !o)}
+        aria-label="Menu"
+      >
+        {menuOpen ? "✕" : "☰"}
+      </button>
+
+      <nav className={`navbar-nav${menuOpen ? " open" : ""}`}>
         {location.pathname !== "/zgloszenie" && (
-          <button
-            onClick={() => navigate("/zgloszenie")}
-            style={navBtn("#dc3545")}
-          >
+          <button onClick={() => go("/zgloszenie")} style={navBtn("#dc3545")}>
             + Zgłoś usterkę
           </button>
         )}
 
         {location.pathname !== "/moje-zgloszenia" && (
           <button
-            onClick={() => navigate("/moje-zgloszenia")}
+            onClick={() => go("/moje-zgloszenia")}
             style={navBtn("#0d9488")}
           >
             Moje zgłoszenia
@@ -79,25 +93,19 @@ function Navbar() {
         {loggedIn ? (
           <>
             {user?.isSuperadmin && location.pathname !== "/admin" && (
-              <button
-                onClick={() => navigate("/admin")}
-                style={navBtn("#7c3aed")}
-              >
+              <button onClick={() => go("/admin")} style={navBtn("#7c3aed")}>
                 Panel Admina
               </button>
             )}
             {user?.role === "ADMIN" && location.pathname !== "/gmina" && (
-              <button
-                onClick={() => navigate("/gmina")}
-                style={navBtn("#0d9488")}
-              >
+              <button onClick={() => go("/gmina")} style={navBtn("#0d9488")}>
                 Panel gminy
               </button>
             )}
             {(user?.role === "URZEDNIK" || user?.isSuperadmin) &&
               location.pathname !== "/urzednik" && (
                 <button
-                  onClick={() => navigate("/urzednik")}
+                  onClick={() => go("/urzednik")}
                   style={navBtn("#0891b2")}
                 >
                   Panel urzędnika
@@ -106,7 +114,7 @@ function Navbar() {
             {(user?.role === "WYKONAWCA" || user?.isSuperadmin) &&
               location.pathname !== "/wykonawca" && (
                 <button
-                  onClick={() => navigate("/wykonawca")}
+                  onClick={() => go("/wykonawca")}
                   style={navBtn("#ea580c")}
                 >
                   Panel wykonawcy
@@ -128,16 +136,10 @@ function Navbar() {
           </>
         ) : (
           <>
-            <button
-              onClick={() => navigate("/login")}
-              style={navBtn("#2563eb")}
-            >
+            <button onClick={() => go("/login")} style={navBtn("#2563eb")}>
               Zaloguj się
             </button>
-            <button
-              onClick={() => navigate("/register")}
-              style={navBtn("#059669")}
-            >
+            <button onClick={() => go("/register")} style={navBtn("#059669")}>
               Zarejestruj się
             </button>
           </>

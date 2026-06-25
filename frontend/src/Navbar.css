@@ -1,0 +1,47 @@
+.navbar-hamburger {
+  display: none;
+  background: none;
+  border: none;
+  color: white;
+  font-size: 22px;
+  cursor: pointer;
+  padding: 4px 8px;
+  line-height: 1;
+}
+
+.navbar-nav {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+@media (max-width: 640px) {
+  .navbar-hamburger {
+    display: block;
+  }
+
+  .navbar-nav {
+    display: none;
+    flex-direction: column;
+    align-items: stretch;
+    width: 100%;
+    gap: 8px;
+  }
+
+  .navbar-nav.open {
+    display: flex;
+  }
+
+  .navbar-nav button {
+    width: 100%;
+    box-sizing: border-box;
+    text-align: center;
+    padding: 10px 16px;
+  }
+
+  .navbar-nav span {
+    text-align: center;
+    width: 100%;
+  }
+}
