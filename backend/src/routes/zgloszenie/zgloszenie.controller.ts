@@ -242,7 +242,14 @@ const buildAuditEntries = (
 
   const track = (field: string, oldV: string | null, newV: string | null) => {
     if (oldV !== newV)
-      entries.push({ zgloszenieId, userId, userName, field, oldValue: oldV, newValue: newV });
+      entries.push({
+        zgloszenieId,
+        userId,
+        userName,
+        field,
+        oldValue: oldV,
+        newValue: newV,
+      });
   };
 
   if (after.status !== undefined) track("status", before.status, after.status);
@@ -296,10 +303,7 @@ export const getMyZgloszenia = async (
 };
 
 // Zlecenia wykonawcy — zgłoszenia przypisane do jego firmy.
-export const getZlecone = async (
-  req: AuthenticatedRequest,
-  res: Response,
-) => {
+export const getZlecone = async (req: AuthenticatedRequest, res: Response) => {
   try {
     const zgloszenia = await zgloszenieService.listZlecone(
       req.user!.wykonawcaId ?? -1,
@@ -556,10 +560,7 @@ export const addKomentarz = async (
 };
 
 // Historia zmian (audit log) — odczyt dla obsługi mającej dostęp do zgłoszenia.
-export const getHistoria = async (
-  req: AuthenticatedRequest,
-  res: Response,
-) => {
+export const getHistoria = async (req: AuthenticatedRequest, res: Response) => {
   try {
     const id = parseId(req.params.id);
     if (id === null) return BAD_REQUEST(res, "Niepoprawne id zgłoszenia.");

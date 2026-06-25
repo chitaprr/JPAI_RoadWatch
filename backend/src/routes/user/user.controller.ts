@@ -27,9 +27,7 @@ export const updateUserSchema = z.object({
 // roli ADMIN ani flagi superadmina, nie przypisuje gmin spoza swojej.
 const adminUpdateUserSchema = z.object({
   name: z.string().min(2).optional(),
-  role: z
-    .enum([Rola.MIESZKANIEC, Rola.URZEDNIK, Rola.WYKONAWCA])
-    .optional(),
+  role: z.enum([Rola.MIESZKANIEC, Rola.URZEDNIK, Rola.WYKONAWCA]).optional(),
   wykonawcaId: z.number().int().positive().nullable().optional(),
 });
 

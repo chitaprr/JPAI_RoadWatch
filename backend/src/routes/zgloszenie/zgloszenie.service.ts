@@ -283,8 +283,7 @@ export const getStatystyki = async (
     const firstRepair = row.naprawy[0];
     if (firstRepair) {
       resolvedCount += 1;
-      totalMs +=
-        firstRepair.completedAt.getTime() - row.createdAt.getTime();
+      totalMs += firstRepair.completedAt.getTime() - row.createdAt.getTime();
     }
   }
 

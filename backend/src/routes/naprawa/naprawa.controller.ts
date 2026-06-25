@@ -93,7 +93,11 @@ export const createNaprawa = async (
       ]);
       // Powiadom właściciela zgłoszenia o zakończeniu (best-effort).
       void pushService
-        .notifyStatusChange(zgloszenie.userId, parsed.data.zadanieId, "Zakończone")
+        .notifyStatusChange(
+          zgloszenie.userId,
+          parsed.data.zadanieId,
+          "Zakończone",
+        )
         .catch(() => {});
     }
 
