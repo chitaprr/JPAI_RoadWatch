@@ -12,8 +12,6 @@ self.addEventListener("push", (event) => {
   const title = data.title || "RoadWatch";
   const options = {
     body: data.body || "",
-    icon: "/pwa-icon.svg",
-    badge: "/pwa-icon.svg",
     data: { url: data.url || "/" },
   };
   event.waitUntil(self.registration.showNotification(title, options));

@@ -11,7 +11,11 @@ export default defineConfig({
       // Rejestrację SW wykonujemy ręcznie w main.jsx — tylko na urządzeniach
       // mobilnych. Na PC działa zwykła strona (bez service workera/cache).
       injectRegister: false,
-      // SW działa tylko w buildzie produkcyjnym (nie zaśmieca dev cache'em).
+      // injectManifest daje pełną kontrolę nad SW — precache + push handlery
+      // w jednym pliku, bez importScripts, które może nie trafić do buildu.
+      strategies: "injectManifest",
+      srcDir: "src",
+      filename: "sw.js",
       includeAssets: ["pwa-icon.svg"],
       manifest: {
         name: "RoadWatch — Monitoring Infrastruktury Drogowej",
@@ -36,27 +40,6 @@ export default defineConfig({
           // { src: "pwa-192x192.png", sizes: "192x192", type: "image/png" },
           // { src: "pwa-512x512.png", sizes: "512x512", type: "image/png" },
           // { src: "maskable-512x512.png", sizes: "512x512", type: "image/png", purpose: "maskable" },
-        ],
-      },
-      workbox: {
-        // Handlery push importowane do głównego SW — wymagane przez iOS,
-        // który ignoruje zdarzenia push dla SW spoza scope "/".
-        importScripts: ["push-handler.js"],
-        // App-shell jest precache'owany automatycznie. Tu tylko runtime cache
-        // kafelków mapy OSM, żeby ponowne wejścia działały szybciej/offline.
-        runtimeCaching: [
-          {
-            urlPattern: /^https:\/\/[a-c]\.tile\.openstreetmap\.org\/.*/i,
-            handler: "CacheFirst",
-            options: {
-              cacheName: "osm-tiles",
-              expiration: {
-                maxEntries: 300,
-                maxAgeSeconds: 60 * 60 * 24 * 14, // 14 dni
-              },
-              cacheableResponse: { statuses: [0, 200] },
-            },
-          },
         ],
       },
     }),
